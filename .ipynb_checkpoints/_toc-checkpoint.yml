@@ -2,9 +2,65 @@
 # Learn more at https://jupyterbook.org/customize/toc.html
 
 format: jb-book
-root: capa
-chapters:
-- file: markdown
-- file: notebooks
-- file: markdown-notebooks
-- file: RQAR_2025_book
+
+root: intro
+parts:
+  - caption: Equipe
+    chapters:
+    - file: mma
+    - file: team
+
+
+
+  - caption: Documento
+    chapters:
+    # 1 Apresentação - arquivo Markdown
+    - file: chpt01/chpt01
+      sections:
+      - file: chpt01/sec01_1
+      - file: chpt01/sec01_2
+    
+    
+    # 2	Definições, padrões e parâmetros da qualidade do ar no Brasil - arquivo Markdown
+    - file: chpt02/chpt02
+      sections:
+      - file: chpt02/sec02_1
+      - file: chpt02/sec02_2
+      - file: chpt02/sec02_3
+      - file: chpt02/sec02_4
+      - file: chpt02/sec02_5
+      
+    # 3	A Rede de Monitoramento Brasileira - Markdown e Notebooks
+    - file: chpt03/chpt03
+      sections:
+      - file: chpt03/sec03_1
+      - file: chpt03/sec03_2
+      - file: chpt03/sec03_3
+      - file: chpt03/sec03_4
+    
+    
+    # 4 Qualidade do Ar no Brasil - Markdown e Notebooks
+    - file: chpt04/chpt04
+      sections:
+      - file: chpt04/sec04_1
+      - file: chpt04/sec04_2
+      - file: chpt04/sec04_3
+      - file: chpt04/sec04_4
+      - file: chpt04/sec04_5
+    
+    # 5	Perspectivas de ampliação da rede e medidas de gestão das fontes de poluição	- arquivo Markdown
+    - file: chpt05/chpt05
+    
+    # 6	Comunicação e divulgação dos dados nos estados brasileiros - arquivo Markdown
+    - file: chpt06/chpt06
+    
+    # 7	Publicações científicas em periódicos sobre a poluição no Brasil - arquivo Markdown
+    - file: chpt07/chpt07
+    
+    # 8	Considerações finais - arquivo Markdown
+    - file: chpt08/chpt08
+    
+    # Referências - arquivo Markdown
+    #- file: references
+
+
