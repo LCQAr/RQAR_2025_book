@@ -16,7 +16,8 @@ import pandas as pd
 import warnings
 import numpy as np
 warnings.filterwarnings('ignore')
-
+from itables import init_notebook_mode, show
+import itables.options as opt
 
 #-------------------------------- Dicionários-------------------------------------------- 
 # Códigos IBGE por UF
@@ -63,6 +64,8 @@ columns_names = {
     'LONGITUDE':    'Longitude',
     'MONITORAR':    'Integrado no MONITORAR?',
     'FONTE':        'Fonte',
+    'REGIAO':       'Região',
+    'FLAG':         ''
 }
 # ---------------------------------Funções-----------------------------------------------
 
@@ -100,7 +103,10 @@ columns_names = {
 #         # Caminho para a pasta de dados
 #        rootPath = os.path.dirname(os.getcwd())
 #        aqmData = pd.read_csv(rootPath+'/data/Monitoramento_QAr_BR.csv',encoding = 'unicode_escape')
-  
+
+def columns_renamer(aqmDisplay):
+    aqmDisplay = aqmDisplay.rename(columns={k: v for k, v in columns_names.items() if k in aqmDisplay.columns})
+    return aqmDisplay
 
 def style_all_white(row: pd.Series) -> List:
     """
@@ -184,7 +190,10 @@ def tableReorder(regioes):
     df_index = pd.DataFrame(uf_order.items(), columns=['UF', 'ORDEM'])
     return df_index, uf_to_region, uf_order
 
-def table_constructor():
+def table_constructor(columns_selector = ['FLAG','UF', 'Realiza monitoramento?','FONTE','REGIAO'],
+                      drop_duplicates_by=['UF','FONTE'],
+                     groupby_method = 'join', groupby_column=['FONTE']):
+    
     # Caminho para a pasta de dados
     rootPath = os.path.dirname(os.getcwd())
     
@@ -218,37 +227,55 @@ def table_constructor():
     # Sort by region order and then by UF order
     aqmData = aqmData.sort_values('ORDEM').drop(columns='ORDEM').reset_index(drop=True)
 
-    return aqmData
+    aqmDisplay = aqmData[columns_selector]
 
-
-def table_stylizer():
-    aqmData = table_constructor()
     # Selecionando apenas Estado e Fonte e removendo redundâncias
-    aqmData = aqmData.drop_duplicates(subset=['UF', 'FONTE']).reset_index()
+    aqmDisplay = aqmDisplay.drop_duplicates(subset=drop_duplicates_by)
+
+    if groupby_method=='join':
+
+        # Agrupamento por estado quando tivermos mais de uma fonte de informação
+        for group_col in groupby_column:
+            aqmDataGroup = aqmData.groupby('UF').agg({
+                group_col: lambda x: ', '.join(x),
+            }).reset_index()
+            aqmData[group_col] = aqmDataGroup[group_col]
+
+    aqmDisplay = aqmDisplay.rename(columns={k: v for k, v in columns_names.items() if k in aqmDisplay.columns})
+
+
+    return aqmData,aqmDisplay
+
+
+def table_stylizer(style_sortBy='REGIAO'):
+    aqmData,aqmDisplay = table_constructor()
+    # Selecionando apenas Estado e Fonte e removendo redundâncias
+    #aqmData = aqmData.drop_duplicates(subset=['UF', 'FONTE']).reset_index()
 
 
     # Agrupamento por estado quando tivermos mais de uma fonte de informação
-    aqmDataGroup = aqmData.groupby('UF').agg({
-        'FONTE': lambda x: ', '.join(x),
-    }).reset_index()
-    aqmData['FONTE'] = aqmDataGroup['FONTE']
+    #aqmDataGroup = aqmData.groupby('UF').agg({
+    #    'FONTE': lambda x: ', '.join(x),
+    #}).reset_index()
+    #aqmData['FONTE'] = aqmDataGroup['FONTE']
 
     
-    print(aqmData)
-    aqmDisplay = aqmData[['FLAG','UF', 'Realiza monitoramento?','FONTE','REGIAO']]
-    aqmDisplay = aqmDisplay.rename(columns={"FLAG": "", "UF": "UF",'Realiza monitoramento?':'Realiza monitoramento?',"FONTE": "Fonte","REGIAO": "Região"})
+    #print(aqmData)
+    #aqmDisplay = aqmData[['FLAG','UF', 'Realiza monitoramento?','FONTE','REGIAO']]
+    #aqmDisplay = aqmDisplay.rename(columns={"FLAG": "", "UF": "UF",'Realiza monitoramento?':'Realiza monitoramento?',"FONTE": "Fonte","REGIAO": "Região"})
     
     rows = []
 
-    for group, data in aqmDisplay.groupby('Região', sort=False):
-        rows.append({'': '', 'UF': group, 'Realiza monitoramento?': '', 'Fonte': '','Região': ''})  
+    for group, data in aqmDisplay.groupby(columns_names[style_sortBy], sort=False):
+        empty_dict_UF = {col: group if col == 'UF' else '' for col in aqmDisplay.columns}
+        rows.append(empty_dict_UF)  
         rows.extend(data.to_dict('records'))
         # Add separator row: None or '' to create empty row
-        rows.append({'': '', 'UF': '', 'Realiza monitoramento?': '', 'Fonte': '','Região': ''})  
+        empty_dict = {col: '' for col in aqmDisplay.columns}
+        rows.append(empty_dict)  
     
     # Add a blank row at the beginning
-    blank_row = {'': '', 'UF': '', 'Realiza monitoramento?': '', 'Fonte': '','Região': ''}
-    rows.insert(0, blank_row)
+    rows.insert(0, empty_dict)
         
     df_with_separators = pd.DataFrame(rows)
     df_with_separators = df_with_separators.drop(columns=['Região'])
@@ -572,3 +599,55 @@ def table07():
     )
 
     return display(HTML(styled.to_html(index=False, border=0,escape=False)))
+
+
+def tabela_iterativa(aqmData, searchPaneColumns):
+    init_notebook_mode(all_interactive=True)
+    opt.maxBytes = 0
+    # Configure global options
+    opt.classes = "display compact stripe"
+    opt.columnDefs = [{"targets": "_all", "className": "dt-rigth"},   
+                      {"targets": [0,1],  # First column
+                       "width": "60px",  # or "10%" if you prefer relative size
+                       "className": "dt-right"  # optional: left-align
+                      },]  # Align text right
+    opt.style = "font-size: 11px; white-space: normal;div.dt-buttons button {font-size: 10px !important; padding: 4px 6px;"  # Apply font size and enable wrapping
+    opt.lengthMenu = [5, 10, 25]
+    return show(aqmData, 
+             buttons=["copyHtml5", "csvHtml5", "excelHtml5","columnsToggle"],
+             layout={"top1": "searchPanes"},
+             searchPanes={"layout": "columns-3", "cascadePanes": True, "columns": searchPaneColumns},
+             allow_html=True,
+             keys=True,
+             escape=False,
+             index=False,)
+
+
+def tabela_poluentes_monitorados():
+
+# Caminho para a pasta de dados
+    rootPath = os.path.dirname(os.getcwd())
+    
+    # Lendo o csv
+    aqmData = pd.read_csv(rootPath+'/data/Monitoramento_QAr_BR.csv',encoding = 'unicode_escape')
+    aqmData['ID_OEMA'] = aqmData['ID_OEMA'].str.replace(' ', '') 
+    aqmData['POLUENTE'] = aqmData['POLUENTE'].str.upper()
+    
+    # Agrupamento por estado quando tivermos mais de uma fonte de informação
+    aqmDataGrouped = aqmData.groupby(['UF','ID_OEMA','LATITUDE','LONGITUDE','CATEGORIA','FUNCIONAMENTO']).agg({
+        'POLUENTE': lambda x: ', '.join(x),
+    }).reset_index()
+
+        #Create a new column with HTML img tag
+    aqmDataGrouped['FLAG'] = aqmDataGrouped['UF'].apply(
+        lambda uf: f'<img src= "../_static/bandeiras/{uf}.png" width="30">'
+    ).astype(str)
+
+    aqmDataGrouped['N° Poluentes Medidos'] = aqmDataGrouped['POLUENTE'].apply(lambda x: len(x.split(',')))
+
+    aqmDataGrouped = aqmDataGrouped[['FLAG','UF','ID_OEMA','LATITUDE','LONGITUDE','CATEGORIA','FUNCIONAMENTO','N° Poluentes Medidos', 'POLUENTE' ]]
+    aqmDataGrouped = columns_renamer(aqmDataGrouped)
+    return aqmDataGrouped
+
+
+    
