@@ -85,7 +85,7 @@ kiwisolver==1.4.8
 latexcodec==3.0.1
 linkify-it-py==2.0.3
 lxml==6.0.0
-mapclassify==2.9.0
+mapclassify==2.8.1
 markdown-it-py==3.0.0
 MarkupSafe==3.0.2
 matplotlib==3.10.3
