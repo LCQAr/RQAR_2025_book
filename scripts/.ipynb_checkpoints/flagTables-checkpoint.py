@@ -375,7 +375,7 @@ def table05():
     
     # Lendo o csv
     aqmData = pd.read_csv(rootPath+'/data/Monitoramento_QAr_BR.csv',encoding = 'unicode_escape')
-    print(aqmData.columns)
+    #print(aqmData.columns)
     # Selecionando apenas estações ativas
     aqmData = aqmData[aqmData['STATUS']=='Ativa']
     
@@ -602,6 +602,42 @@ def table07():
 
 
 def tabela_iterativa(aqmData, searchPaneColumns):
+    """
+    Create an interactive HTML table for air quality monitoring data with search panes and export options.
+
+    This function formats a pandas DataFrame into an interactive table using the `itables` package.
+    It configures visual aspects such as column alignment, font size, export buttons, and dynamic search panes
+    to enhance user experience within Jupyter notebooks.
+
+    Parameters
+    ----------
+    aqmData : pandas.DataFrame
+        The input DataFrame containing monitoring station data to be displayed.
+
+    searchPaneColumns : list of int
+        A list of column indices to include in the search panes. These allow filtering based on distinct values
+        in selected columns.
+
+    Returns
+    -------
+    itables.javascript.Javascript
+        An interactive table rendered in a Jupyter notebook environment. Includes features like column toggling,
+        CSV/Excel export, and live filtering.
+
+    Notes
+    -----
+    - Requires the `itables` library with Jupyter notebook support.
+    - The function disables HTML escaping to allow for rendering of HTML content (e.g., embedded flags).
+    - The `searchPanes` feature allows users to filter data using dropdown panes for selected columns.
+    - Global visual configurations are set using `itables.options` (e.g., font size, width, alignment).
+    - Export buttons available: Copy, CSV, Excel, and Column Visibility toggle.
+    - Column indices in `searchPaneColumns` should match the visible columns in `aqmData`.
+
+    Examples
+    --------
+    >>> tabela_iterativa(df, searchPaneColumns=[1, 2, 3])
+    """
+    
     init_notebook_mode(all_interactive=True)
     opt.maxBytes = 0
     # Configure global options
@@ -623,30 +659,72 @@ def tabela_iterativa(aqmData, searchPaneColumns):
              index=False,)
 
 
-def tabela_poluentes_monitorados():
+def flagTable(columnsSelector):
 
-# Caminho para a pasta de dados
+    """
+    Generate a formatted DataFrame of air quality monitoring stations with flags and pollutant counts.
+
+    This function reads air quality monitoring data from a CSV file, cleans and processes it, aggregates
+    pollutants by station, and returns a customized DataFrame with selected columns. It also generates
+    an HTML image tag for each Brazilian state's flag and counts the number of pollutants measured at
+    each station.
+
+    Parameters
+    ----------
+    columnsSelector : list of str
+        A list of column names to include in the final output table. This should be a subset of the
+        columns in the processed DataFrame after renaming (e.g., ["FLAG", "UF", "ID_OEMA", ...]).
+
+    Returns
+    -------
+    pandas.DataFrame
+        A formatted DataFrame including selected columns, with added columns for flags and number of
+        pollutants measured. The DataFrame is ready for display in HTML or static reports.
+
+    Notes
+    -----
+    - The data is read from a file located at: `../data/Monitoramento_QAr_BR.csv`, relative to the current working directory.
+    - The column `POLUENTE` is aggregated by grouping over all other columns and combining the pollutant names.
+    - A flag image is generated per `UF` (federative unit) using the path `"../_static/bandeiras/{UF}.png"`.
+    - The number of pollutants per station is computed and stored in the column `"N° Poluentes Medidos"`.
+    - The function uses a global helper `columns_renamer()` to rename columns based on a predefined dictionary.
+    - Columns with all `NaN` values are removed before processing.
+    """
+    
+    # Caminho para a pasta de dados
     rootPath = os.path.dirname(os.getcwd())
     
     # Lendo o csv
     aqmData = pd.read_csv(rootPath+'/data/Monitoramento_QAr_BR.csv',encoding = 'unicode_escape')
     aqmData['ID_OEMA'] = aqmData['ID_OEMA'].str.replace(' ', '') 
     aqmData['POLUENTE'] = aqmData['POLUENTE'].str.upper()
+
+    # Remove colunas com todos valores iguais a NaN
+    aqmData = aqmData.dropna(axis=1, how='all')
+
+    remaining_columns = aqmData.columns[aqmData.columns != 'POLUENTE'].tolist()
+    #print(remaining_columns)
     
     # Agrupamento por estado quando tivermos mais de uma fonte de informação
-    aqmDataGrouped = aqmData.groupby(['UF','ID_OEMA','LATITUDE','LONGITUDE','CATEGORIA','FUNCIONAMENTO']).agg({
+    aqmDataGrouped = aqmData.groupby(remaining_columns).agg({
         'POLUENTE': lambda x: ', '.join(x),
     }).reset_index()
-
-        #Create a new column with HTML img tag
+    #print(aqmDataGrouped)
+    
+    #Create a new column with HTML img tag
     aqmDataGrouped['FLAG'] = aqmDataGrouped['UF'].apply(
         lambda uf: f'<img src= "../_static/bandeiras/{uf}.png" width="30">'
     ).astype(str)
 
+     # Cria uma coluna com número de poluentes medidos
     aqmDataGrouped['N° Poluentes Medidos'] = aqmDataGrouped['POLUENTE'].apply(lambda x: len(x.split(',')))
-
-    aqmDataGrouped = aqmDataGrouped[['FLAG','UF','ID_OEMA','LATITUDE','LONGITUDE','CATEGORIA','FUNCIONAMENTO','N° Poluentes Medidos', 'POLUENTE' ]]
+    
+    #aqmDataGrouped = aqmDataGrouped[['FLAG','UF','ID_OEMA','LATITUDE','LONGITUDE','CATEGORIA','FUNCIONAMENTO','N° Poluentes Medidos', 'POLUENTE' ]]
     aqmDataGrouped = columns_renamer(aqmDataGrouped)
+
+    # Seleciona as colunas para uso    
+    aqmDataGrouped = aqmDataGrouped[columnsSelector]
+    
     return aqmDataGrouped
 
 

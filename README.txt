@@ -74,52 +74,51 @@ sec02_5.md = Governança sobre a qualidade do ar no Brasil
 chp03.md A Rede de Monitoramento Brasileira 
 
 
-sec03_1.ipynb =  
+sec03_1.ipynb =  Distribuição espacial
         
-    3.1.1. Distribuição espacial
 
-        Figura 1 – a) Distribuição espacial das UFs no Brasil. b) Distribuição espacial das estações de monitoramento da
-            qualidade do ar no Brasil por status. b) Número de estações de monitoramento ativas e inativas nas UFs do Brasil
+    Figura 1 – a) Distribuição espacial das UFs no Brasil. b) Distribuição espacial das estações de monitoramento da
+        qualidade do ar no Brasil por status. b) Número de estações de monitoramento ativas e inativas nas UFs do Brasil
 
-        Tabela 5 – Número total de estações de monitoramento da qualidade do ar no Brasil.
-            Dados coletados no formulário aplicado pelo MMA.
-
-
-    3.1.2. Equipamentos utilizados
-
-        Tabela 6 – Número de estações de monitoramento da qualidade do ar de referência ou equivalente no Brasil. Dados
-            coletados no formulário aplicado pelo MMA.Tabela com equipamentos utilizados – total e por estados. Tabela utilizando planilha Monitoramento_QAr.csv
-
-        Figura 2 – a) Distribuição espacial das UFs no Brasil. b) Distribuição espacial das estações de monitora-
-            mento da qualidade do ar no Brasil por tipo. c) Número de estações de monitoramento de referência
-            e indicativas nas UFs do Brasil.
-
-        Figura 3 – Distribuição espacial das estações de monitoramento da qualidade do ar nas regiões do Brasil por status.
-        
-        Apêndice com toda a lista de equipamentos com detalhes  
-
-        Figura exemplo com dados da rede automática. Tentar fazer dropdown menu para escolher a estação 
-
-        Figura exemplo com dados da rede com rede manual 
-
-        Figura exemplo com dados da rede indicativa 
+    Tabela 5 – Número total de estações de monitoramento da qualidade do ar no Brasil.
+        Dados coletados no formulário aplicado pelo MMA.
 
 
-    3.1.3. Poluentes monitorados
+sec03_2.ipynb =  Equipamentos utilizados
 
-        Tabela 7 – Parâmetros da Resolução Conama n. 506/2024 monitorados por estações de referência ou equivalentes em 2024. Dados coletados no formulário aplicado pelo MMA.
-        
-        Figura com o número de poluentes medidos em cada estação - pintar as bolinhas. Montar um folium com os tags dos poluentes monitorados no mapa iterativo
+    Tabela 6 – Número de estações de monitoramento da qualidade do ar de referência ou equivalente no Brasil. Dados
+        coletados no formulário aplicado pelo MMA.Tabela com equipamentos utilizados – total e por estados. Tabela utilizando planilha Monitoramento_QAr.csv
+
+    Figura 2 – a) Distribuição espacial das UFs no Brasil. b) Distribuição espacial das estações de monitora-
+        mento da qualidade do ar no Brasil por tipo. c) Número de estações de monitoramento de referência
+        e indicativas nas UFs do Brasil.
+
+    Figura 3 – Distribuição espacial das estações de monitoramento da qualidade do ar nas regiões do Brasil por status.
+    
+    Apêndice com toda a lista de equipamentos com detalhes  
+
+    Figura exemplo com dados da rede automática. Tentar fazer dropdown menu para escolher a estação 
+
+    Figura exemplo com dados da rede com rede manual 
+
+    Figura exemplo com dados da rede indicativa 
 
 
-sec03_2.ipynb = Operação e manutenção das estações e controle de qualidade 
+sec03_3.ipynb = Poluentes monitorados
+
+    Tabela 7 – Parâmetros da Resolução Conama n. 506/2024 monitorados por estações de referência ou equivalentes em 2024. Dados coletados no formulário aplicado pelo MMA.
+    
+    Figura com o número de poluentes medidos em cada estação - pintar as bolinhas. Montar um folium com os tags dos poluentes monitorados no mapa iterativo
+
+
+sec03_4.ipynb = Operação e manutenção das estações e controle de qualidade 
 
     Texto sobre os sistemas de operação, manutenção e controle de qualidade 
 
     Tabela 9 – Completude média das medições de qualidade do ar (escala diária) nas UFs do Brasil no ano de 2023.
 
 
-    3.2.1. Frequência de manutenção e calibração, 
+    3.4.1. Frequência de manutenção e calibração, 
 
         Lista por estação no apêndice 
 
@@ -128,7 +127,7 @@ sec03_2.ipynb = Operação e manutenção das estações e controle de qualidade
         Tabela por estado
 
 
-    3.2.2. Metodologia de tratamento dos dados e controle de qualidade 
+    3.4.2. Metodologia de tratamento dos dados e controle de qualidade 
 
         Lista de metodologia por estações/estado 
 
@@ -137,17 +136,17 @@ sec03_2.ipynb = Operação e manutenção das estações e controle de qualidade
         Tabela por estado
 
 
-sec03_3.ipynb = Finalidade do monitoramento 
+sec03_5.ipynb = Finalidade do monitoramento 
 
     Figura com finalidade do monitoramento no espaço**
 
     Tabela da finalidade do monitoramento por estado**
 
 
-sec03_4.ipynb = Cobertura do monitoramento da qualidade do ar 
+sec03_6.ipynb = Cobertura do monitoramento da qualidade do ar 
 
 
-    3.4.1. Representatividade espacial das estações
+    3.6.1. Representatividade espacial das estações
 
         Tabela 11 – Cobertura das redes de monitoramento da qualidade do ar no Brasil considerando a área total do país e a
             área urbana. Análise realizada utilizando dados do IBGE (IBGE, 2019; IBGE, 2022
@@ -159,7 +158,7 @@ sec03_4.ipynb = Cobertura do monitoramento da qualidade do ar
             considerando a área urbana. Análise realizada utilizando dados do IBGE (IBGE, 2019; IBGE, 2022a)
 
 
-    3.4.2. Usos do solo monitorados 
+    3.6.2. Usos do solo monitorados 
 
         Figura 8 – a) Distribuição espacial das UFs no Brasil. b) Distribuição das estações de monitoramento e uso predominante
             do solo no entorno, considerando um raio de 1km. Classificação do uso do solo conforme projeto MapBiomas (2023)
@@ -171,7 +170,7 @@ sec03_4.ipynb = Cobertura do monitoramento da qualidade do ar
             do ar foi considerado representativo no espaço. Classificação do uso do solo conforme projeto MapBiomas (2023).
 
 
-    3.4.3. Cobertura populacional 
+    3.6.3. Cobertura populacional 
 
         Tabela 13 – Estimativa da população atendida pelo monitoramento da qualidade do ar de referência (ou equivalente) e
             indicativo em cada UF. Análise realizada utilizando dados do IBGE (2019; 2022a; 2022b).

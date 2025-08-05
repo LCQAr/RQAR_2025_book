@@ -1,8 +1,8 @@
 # Book settings
 # Learn more at https://jupyterbook.org/customize/config.html
 
-title: My sample book
-author: The Jupyter Book Community
+title: Relatório Anual de Acompanhamento da Qualidade do Ar - 2025
+author: MMA
 logo: media/images/MMA.jpg
 
 # Force re-execution of notebooks on each build.
@@ -30,3 +30,15 @@ repository:
 html:
   use_issues_button: true
   use_repository_button: true
+  use_thebe: true
+  
+launch_buttons:
+    thebe: true
+    binderhub_url: "https://mybinder.org"
+
+kernelspec:
+  name: python3
+
+repository:
+  url: https://github.com/LCQAr/RQAR_2025_book
+  branch: main
