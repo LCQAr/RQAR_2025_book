@@ -5,41 +5,38 @@ title: Relatório Anual de Acompanhamento da Qualidade do Ar - 2025
 author: MMA
 logo: media/images/MMA.jpg
 
-# Force re-execution of notebooks on each build.
-# See https://jupyterbook.org/content/execute.html
+# Execute notebooks during build
 execute:
-  execute_notebooks: auto
-
-# Define the name of the latex output file for PDF builds
+  execute_notebooks: auto 
+  
+# LaTeX PDF output filename
 latex:
   latex_documents:
     targetname: book.tex
 
-# Add a bibtex file so that we can create citations
+# Bibtex references
 bibtex_bibfiles:
   - references.bib
 
-# Information about where the book exists on the web
+# Repository info for GitHub buttons
 repository:
   url: https://github.com/LCQAr/RQAR_2025_book
   branch: main
 
-
-# Add GitHub buttons to your book
-# See https://jupyterbook.org/customize/config.html#add-a-link-to-your-repository
+# HTML output options
 html:
   use_issues_button: true
   use_repository_button: true
   use_thebe: true
   use_hide_code_button: true
-  code_toggle: true   # enables hide/show buttons (optional)
-  
+  code_toggle: true
+  use_widgets: true
+
+# Launch buttons for Binder / Thebe
 launch_buttons:
-  thebe: true
   binderhub_url: https://mybinder.org
   thebe: true
-
-
+  notebook_interface: jupyterlab  
 
 kernelspec:
   name: python3
@@ -47,6 +44,6 @@ kernelspec:
 parse:
   myst_enable_extensions:
     - raw_html
-    
+
 remove_input_tags:
   - remove-input
