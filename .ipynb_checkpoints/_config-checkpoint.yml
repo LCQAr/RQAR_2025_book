@@ -38,7 +38,8 @@ launch_buttons:
   thebe: true
   binderhub_url: https://mybinder.org
   thebe: true
-  notebook_interface: "notebook"
+
+
 
 kernelspec:
   name: python3
@@ -47,9 +48,5 @@ parse:
   myst_enable_extensions:
     - raw_html
     
-sphinx:
-  config:
-    togglebutton_hint: "Show/Hide Code"
-
 remove_input_tags:
   - remove-input
