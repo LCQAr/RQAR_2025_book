@@ -1,0 +1,9 @@
+station,pollutant
+stationA,PM25
+stationA,O3
+stationA,CO
+stationB,PM25
+stationB,NO2
+stationC,NO2
+stationC,O3
+stationC,PM10

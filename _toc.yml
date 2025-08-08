@@ -47,6 +47,8 @@ parts:
       - file: chpt04/sec04_3
       - file: chpt04/sec04_4
       - file: chpt04/sec04_5
+      - file: chpt04/sec04_6
+
     
     # 5	Perspectivas de ampliação da rede e medidas de gestão das fontes de poluição	- arquivo Markdown
     - file: chpt05/chpt05

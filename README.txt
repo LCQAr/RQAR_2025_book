@@ -158,7 +158,14 @@ sec03_6.ipynb = Cobertura do monitoramento da qualidade do ar
             considerando a área urbana. Análise realizada utilizando dados do IBGE (IBGE, 2019; IBGE, 2022a)
 
 
-    3.6.2. Usos do solo monitorados 
+    3.6.2. Representatividade temporal
+
+        Completude
+
+        Representatividade - dias, meses e anos representativos
+
+
+    3.6.3. Usos do solo monitorados 
 
         Figura 8 – a) Distribuição espacial das UFs no Brasil. b) Distribuição das estações de monitoramento e uso predominante
             do solo no entorno, considerando um raio de 1km. Classificação do uso do solo conforme projeto MapBiomas (2023)
@@ -170,7 +177,7 @@ sec03_6.ipynb = Cobertura do monitoramento da qualidade do ar
             do ar foi considerado representativo no espaço. Classificação do uso do solo conforme projeto MapBiomas (2023).
 
 
-    3.6.3. Cobertura populacional 
+    3.6.4. Cobertura populacional 
 
         Tabela 13 – Estimativa da população atendida pelo monitoramento da qualidade do ar de referência (ou equivalente) e
             indicativo em cada UF. Análise realizada utilizando dados do IBGE (2019; 2022a; 2022b).
@@ -183,7 +190,21 @@ chpt04.md = Qualidade do Ar no Brasil
 - MODELAGEM E EMISSÕES = ANO QUE VEM
 
 
-sec04_1.ipynb = Violações dos padrões de qualidade ar no Brasil 
+sec04_1.ipynb = Séries temporais das concentrações de poluentes atmosféricos no Brasil 
+
+
+sec04_2.ipynb = Análise de tendências e sazonalidade da qualidade do ar no Brasil 
+
+    Análise de tendência por estação TABELA ITERATIVA ONDE O USUÁRIO POSSA FILTRAR AS ESTAÇÕES
+
+    Análise de tendência por estado TABELA GERAL
+
+    Figura com tendência por estação no mapa. Pintar bolinhas de acordo com o valor da tendência Mann Kendall.
+
+    Figura com sazonalidade por estação no mapa. Pintar bolinhas de acordo com o valor da sazonalidade - indice de Markhan.
+
+
+sec04_3.ipynb = Violações dos padrões de qualidade ar no Brasil 
 
     Tabela 10 – Ranqueamento das cinco estações com o maior número de violações dos Padrões de Qualidade do Ar de O 3, MP10, MP2,5 e SO2 no ano de 2023. 
     TENTAR FAZER UMA TABELA ITERATIVA ONDE O USUÁRIO POSSA FILTRAR AS ESTAÇÕES
@@ -208,16 +229,6 @@ sec04_3.ipynb = População exposta para cada padrão de qualidade do ar
 
     Figura com estação de monitoramento que viola cada um dos padrões. Demonstrar buffer e população atingida/setores sensitários.
 
-
-sec04_4.ipynb = Análise de tendências e sazonalidade da qualidade do ar no Brasil 
-
-    Análise de tendência por estação TABELA ITERATIVA ONDE O USUÁRIO POSSA FILTRAR AS ESTAÇÕES
-
-    Análise de tendência por estado TABELA GERAL
-
-    Figura com tendência por estação no mapa. Pintar bolinhas de acordo com o valor da tendência Mann Kendall.
-
-    Figura com sazonalidade por estação no mapa. Pintar bolinhas de acordo com o valor da sazonalidade - indice de Markhan.
 
 
 sec04_5.ipynb = Síntese das observações da qualidade do ar por região 
