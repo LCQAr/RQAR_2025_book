@@ -30,7 +30,7 @@ html:
   use_thebe: true
   use_hide_code_button: true
   code_toggle: true
-  use_widgets: true
+
 
 # Launch buttons for Binder / Thebe
 launch_buttons:

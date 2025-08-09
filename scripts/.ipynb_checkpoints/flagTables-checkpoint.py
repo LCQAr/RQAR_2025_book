@@ -533,7 +533,7 @@ def table07():
     aqmData['ID_OEMA'] = aqmData['ID_OEMA'].str.replace(' ', '') 
     
     # Selecionando apenas Estado e Fonte e removendo redundâncias
-    aqmData = aqmData.drop_duplicates(subset=['ID_OEMA'])
+    #aqmData = aqmData.drop_duplicates(subset=['ID_OEMA'])
     #print(aqmData.head())
     
     # Selecionando apenas Estado e Fonte e removendo redundâncias
@@ -558,7 +558,7 @@ def table07():
 
     #Create a new column with HTML img tag
     aqmData['FLAG'] = aqmData['UF'].apply(
-        lambda uf: f'<img src= "../_static/bandeiras/{uf}.png" width="30">'
+        lambda uf: f'<img src= "../_static/bandeiras/{uf}.png" width="100">'
     ).astype(str)
 
         

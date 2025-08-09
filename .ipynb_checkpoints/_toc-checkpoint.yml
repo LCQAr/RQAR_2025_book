@@ -36,7 +36,13 @@ parts:
       - file: chpt03/sec03_3
       - file: chpt03/sec03_4
       - file: chpt03/sec03_5
-      - file: chpt03/sec03_6
+      - file: chpt03/sec03_6 # cobertura da rede
+        sections:
+          - file: chpt03/sec03_6_1 
+          - file: chpt03/sec03_6_2 
+          - file: chpt03/sec03_6_3 
+          - file: chpt03/sec03_6_1 
+
     
     
     # 4 Qualidade do Ar no Brasil - Markdown e Notebooks
@@ -48,7 +54,7 @@ parts:
       - file: chpt04/sec04_4
       - file: chpt04/sec04_5
       - file: chpt04/sec04_6
-      - file: chpt04/sec04_6
+
     
     # 5	Perspectivas de ampliação da rede e medidas de gestão das fontes de poluição	- arquivo Markdown
     - file: chpt05/chpt05

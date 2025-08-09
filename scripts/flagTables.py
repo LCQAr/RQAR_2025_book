@@ -558,7 +558,7 @@ def table07():
 
     #Create a new column with HTML img tag
     aqmData['FLAG'] = aqmData['UF'].apply(
-        lambda uf: f'<img src= "../_static/bandeiras/{uf}.png" width="30">'
+        lambda uf: f'<img src= "../_static/bandeiras/{uf}.png" width="100">'
     ).astype(str)
 
         
