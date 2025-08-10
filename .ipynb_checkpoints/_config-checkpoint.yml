@@ -30,6 +30,8 @@ html:
   use_thebe: true
   use_hide_code_button: true
   code_toggle: true
+  extra_footer:
+    <script src="https://unpkg.com/@jupyter-widgets/html-manager@*/dist/embed-amd.js"></script>
 
 
 # Launch buttons for Binder / Thebe
@@ -47,3 +49,9 @@ parse:
 
 remove_input_tags:
   - remove-input
+
+thebe:
+  binderhub_url: "https://mybinder.org"
+  repository_url: "https://github.com/LCQAr/RQAR_2025_book"
+  repository_branch: main
+  kernel_name: python3
