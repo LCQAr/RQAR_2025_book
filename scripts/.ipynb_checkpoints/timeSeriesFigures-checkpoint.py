@@ -19,6 +19,8 @@ import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 import warnings
 warnings.filterwarnings('ignore')
+
+
 def tratar_dados(df):
     """
     Recebe DataFrame cru, cria coluna datetime, converte e limpa valores.
@@ -76,7 +78,7 @@ def split_nan_segments(x, y):
     return segments
 
     
-def iterative_timeseries(df):
+def iterative_timeseries(df,ID_MMA_COMPLETO):
     df = tratar_dados(df)
     daily_avg_df = df[['datetime','VALOR']].groupby(pd.Grouper(key='datetime', freq='D')).mean()
     daily_min_df = df[['datetime','VALOR']].groupby(pd.Grouper(key='datetime', freq='D')).min()
@@ -271,7 +273,7 @@ def iterative_timeseries(df):
 
     # Update layout for better presentation
     fig.update_layout(
-        title='Série temporal',
+        title='Série temporal - '+ID_MMA_COMPLETO,
         hovermode='x unified', # Shows hover info for all traces at a given x-coordinate
         height=1200, width=800,
         plot_bgcolor='rgba(0.9,0.9,0.9,0.2)')
@@ -294,7 +296,7 @@ def iterative_timeseries(df):
 
     rootPath = os.path.dirname(os.getcwd())
     
-    fig.write_html(rootPath+"/data/MQAr/plotly_figures/stationA_PM25.html")
+    fig.write_html(rootPath+"/_static/plotly_figures/timeSeriesFigures/"+ID_MMA_COMPLETO+".html")
 
     
     return fig.show()

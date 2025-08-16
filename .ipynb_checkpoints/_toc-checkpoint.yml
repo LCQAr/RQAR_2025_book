@@ -41,7 +41,7 @@ parts:
           - file: chpt03/sec03_6_1 
           - file: chpt03/sec03_6_2 
           - file: chpt03/sec03_6_3 
-          - file: chpt03/sec03_6_1 
+          - file: chpt03/sec03_6_4 
 
     
     
@@ -49,6 +49,9 @@ parts:
     - file: chpt04/chpt04
       sections:
       - file: chpt04/sec04_1
+        sections:
+          - file: chpt04/sec04_1_1
+          - file: chpt04/sec04_1_2
       - file: chpt04/sec04_2
       - file: chpt04/sec04_3
       - file: chpt04/sec04_4
