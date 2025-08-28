@@ -3,7 +3,7 @@
 
 title: Relatório Anual de Acompanhamento da Qualidade do Ar - 2025
 author: MMA
-logo: media/images/MMA.jpg
+logo: media/images/LOGO3.jpg
 
 # Execute notebooks during build
 execute:
@@ -55,3 +55,7 @@ thebe:
   repository_url: "https://github.com/LCQAr/RQAR_2025_book"
   repository_branch: main
   kernel_name: python3
+
+sphinx:
+  config:
+    language: pt_BR

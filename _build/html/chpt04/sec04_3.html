@@ -2,7 +2,7 @@
 <!DOCTYPE html>
 
 
-<html lang="en" data-content_root="../" >
+<html lang="pt-BR" data-content_root="../" >
 
   <head>
     <meta charset="utf-8" />
@@ -42,7 +42,7 @@
 <link rel="preload" as="script" href="../_static/scripts/pydata-sphinx-theme.js?digest=dfe6caa3a7d634c4db9b" />
   <script src="../_static/vendor/fontawesome/6.5.2/js/all.min.js?digest=dfe6caa3a7d634c4db9b"></script>
 
-    <script src="../_static/documentation_options.js?v=9eb32ce0"></script>
+    <script src="../_static/documentation_options.js?v=2efa9f5e"></script>
     <script src="../_static/doctools.js?v=9a2dae69"></script>
     <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../_static/clipboard.min.js?v=a7894cd8"></script>
@@ -52,6 +52,7 @@
     <script>let toggleHintHide = 'Click to hide';</script>
     <script>let toggleOpenOnPrint = 'true';</script>
     <script src="../_static/togglebutton.js?v=4a39c7ea"></script>
+    <script src="../_static/translations.js?v=daa5921a"></script>
     <script>var togglebuttonSelector = '.toggle, .admonition.dropdown';</script>
     <script src="../_static/design-tabs.js?v=f930bc37"></script>
     <script>const THEBE_JS_URL = "https://unpkg.com/thebe@0.8.2/lib/index.js"; const thebe_selector = ".thebe,.cell"; const thebe_selector_input = "pre"; const thebe_selector_output = ".output, .cell_output"</script>
@@ -59,12 +60,12 @@
     <script>var togglebuttonSelector = '.toggle, .admonition.dropdown';</script>
     <script>const THEBE_JS_URL = "https://unpkg.com/thebe@0.8.2/lib/index.js"; const thebe_selector = ".thebe,.cell"; const thebe_selector_input = "pre"; const thebe_selector_output = ".output, .cell_output"</script>
     <script>DOCUMENTATION_OPTIONS.pagename = 'chpt04/sec04_3';</script>
-    <link rel="index" title="Index" href="../genindex.html" />
-    <link rel="search" title="Search" href="../search.html" />
+    <link rel="index" title="Índice" href="../genindex.html" />
+    <link rel="search" title="Buscar" href="../search.html" />
     <link rel="next" title="4.4. Designação de áreas de atendimento e não atendimento dos padrões de qualidade do ar - CAMILO" href="sec04_4.html" />
     <link rel="prev" title="4.2. Análise de tendências e sazonalidade da qualidade do ar no Brasil - CAMILO" href="sec04_2.html" />
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
-  <meta name="docsearch:language" content="en"/>
+  <meta name="docsearch:language" content="pt-BR"/>
   </head>
   
   
@@ -154,8 +155,8 @@
       
     
     
-    <img src="../_static/MMA.jpg" class="logo__image only-light" alt="Relatório Anual de Acompanhamento da Qualidade do Ar - 2025 - Home"/>
-    <script>document.write(`<img src="../_static/MMA.jpg" class="logo__image only-dark" alt="Relatório Anual de Acompanhamento da Qualidade do Ar - 2025 - Home"/>`);</script>
+    <img src="../_static/LOGO3.jpg" class="logo__image only-light" alt="Relatório Anual de Acompanhamento da Qualidade do Ar - 2025 - Home"/>
+    <script>document.write(`<img src="../_static/LOGO3.jpg" class="logo__image only-dark" alt="Relatório Anual de Acompanhamento da Qualidade do Ar - 2025 - Home"/>`);</script>
   
   
 </a></div>
@@ -163,9 +164,9 @@
 
  <script>
  document.write(`
-   <button class="btn search-button-field search-button__button" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+   <button class="btn search-button-field search-button__button" title="Buscar" aria-label="Buscar" data-bs-placement="bottom" data-bs-toggle="tooltip">
     <i class="fa-solid fa-magnifying-glass"></i>
-    <span class="search-button__default-text">Search</span>
+    <span class="search-button__default-text">Buscar</span>
     <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
    </button>
  `);
@@ -203,7 +204,7 @@
 <li class="toctree-l1 has-children"><a class="reference internal" href="../chpt03/chpt03.html">3. A Rede de Monitoramento Brasileira</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
 <li class="toctree-l2"><a class="reference internal" href="../chpt03/sec03_1.html">3.1. Distribuição espacial</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../chpt03/sec03_2.html">3.2. Equipamentos utilizados</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../chpt03/sec03_3.html">3.2. Poluentes monitorados</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../chpt03/sec03_3.html">3.3. Poluentes monitorados</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../chpt03/sec03_4.html">3.4. Operação e manutenção das estações e controle de qualidade</a></li>
 
 
@@ -339,7 +340,7 @@
       
       <li><a href="https://github.com/LCQAr/RQAR_2025_book" target="_blank"
    class="btn btn-sm btn-source-repository-button dropdown-item"
-   title="Source repository"
+   title="Repositório fonte"
    data-bs-placement="left" data-bs-toggle="tooltip"
 >
   
@@ -356,7 +357,7 @@
       
       <li><a href="https://github.com/LCQAr/RQAR_2025_book/issues/new?title=Issue%20on%20page%20%2Fchpt04/sec04_3.html&body=Your%20issue%20content%20here." target="_blank"
    class="btn btn-sm btn-source-issues-button dropdown-item"
-   title="Open an issue"
+   title="Abra um problema"
    data-bs-placement="left" data-bs-toggle="tooltip"
 >
   
@@ -377,7 +378,7 @@
 
 
 <div class="dropdown dropdown-download-buttons">
-  <button class="btn dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Download this page">
+  <button class="btn dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Baixe esta página">
     <i class="fas fa-download"></i>
   </button>
   <ul class="dropdown-menu">
@@ -386,7 +387,7 @@
       
       <li><a href="../_sources/chpt04/sec04_3.ipynb" target="_blank"
    class="btn btn-sm btn-download-source-button dropdown-item"
-   title="Download source file"
+   title="Baixar arquivo fonte"
    data-bs-placement="left" data-bs-toggle="tooltip"
 >
   
@@ -404,7 +405,7 @@
       <li>
 <button onclick="window.print()"
   class="btn btn-sm btn-download-pdf-button dropdown-item"
-  title="Print to PDF"
+  title="Imprimir em PDF"
   data-bs-placement="left" data-bs-toggle="tooltip"
 >
   
@@ -424,7 +425,7 @@
 
 <button onclick="toggleFullScreen()"
   class="btn btn-sm btn-fullscreen-button"
-  title="Fullscreen mode"
+  title="Modo tela cheia"
   data-bs-placement="bottom" data-bs-toggle="tooltip"
 >
   
@@ -450,7 +451,7 @@ document.write(`
 
 <script>
 document.write(`
-  <button class="btn btn-sm pst-navbar-icon search-button search-button__button" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+  <button class="btn btn-sm pst-navbar-icon search-button search-button__button" title="Buscar" aria-label="Buscar" data-bs-placement="bottom" data-bs-toggle="tooltip">
     <i class="fa-solid fa-magnifying-glass fa-lg"></i>
   </button>
 `);
@@ -481,7 +482,7 @@ document.write(`
                 <article class="bd-article">
                   
   <section id="violacoes-dos-padroes-de-qualidade-do-ar-no-brasil-camilo">
-<h1>4.3.	Violações dos padrões de qualidade do ar no Brasil - CAMILO<a class="headerlink" href="#violacoes-dos-padroes-de-qualidade-do-ar-no-brasil-camilo" title="Link to this heading">#</a></h1>
+<h1>4.3.	Violações dos padrões de qualidade do ar no Brasil - CAMILO<a class="headerlink" href="#violacoes-dos-padroes-de-qualidade-do-ar-no-brasil-camilo" title="Link para este cabeçalho">#</a></h1>
 <p>Tabela 10 – Ranqueamento das cinco estações com o maior número de violações dos Padrões de Qualidade do Ar de O 3, MP10, MP2,5 e SO2 no ano de 2023.
 TENTAR FAZER UMA TABELA ITERATIVA ONDE O USUÁRIO POSSA FILTRAR AS ESTAÇÕES</p>
 <div class="highlight-none notranslate"><div class="highlight"><pre><span></span>TENTAR FAZER UM DROPDOWN MENU PARA ESCOLHER QUAL SÉRIE TEMPORAL VISUALIZAR NO LIVRO. Colocar padrões da CONAMA. 
@@ -506,6 +507,7 @@ TENTAR FAZER UMA TABELA ITERATIVA ONDE O USUÁRIO POSSA FILTRAR AS ESTAÇÕES</p
 <button id="downloadBtn" disabled>Download CSV</button></p>
 </div>
 <div id="plotDiv" style="width:100%; height:600px;"></div>
+<div id="statsTable" style="margin-top:20px;"></div>
 <script>
 const DATA_FOLDER = 'https://lcqar.ufsc.br/files/2023';
 const METADATA_CSV = 'https://lcqar.ufsc.br/files/2023/Monitoramento_QAr_BR_teste.csv';
@@ -694,14 +696,18 @@ function doPlot() {
     const d = parseInt(row.DIA, 10);
     const h = parseInt(row.HORA, 10) || 0;
     const dt = (Number.isNaN(y) || Number.isNaN(m) || Number.isNaN(d)) ? null : new Date(y, m - 1, d, h);
+
     let val = null;
     if (row.VALOR !== undefined && row.VALOR !== null) {
       const num = parseFloat(String(row.VALOR).replace(',', '.').trim());
       if (!Number.isNaN(num) && num >= 0) val = num;
     }
+
     return { datetime: dt, valor: val };
-  }).filter(r => r.datetime && (!startDate || r.datetime >= startDate) && (!endDate || r.datetime <= endDate))
-    .sort((a, b) => a.datetime - b.datetime);
+  })
+  .filter(r => r.datetime && (!startDate || r.datetime >= startDate) && (!endDate || r.datetime <= endDate))
+  .sort((a, b) => a.datetime - b.datetime);
+
 
   // --- APPLY TIME AVERAGING ---
   if (ave_time.includes("24") || ave_time.includes("day") || ave_time === "d") {
@@ -799,20 +805,16 @@ function doPlot() {
           plot_bgcolor: 'rgba(0.9,0.9,0.9,0.3)'
       };
   } else {
-      // --- LINE PLOT FOR OTHER AVERAGES ---
-      let curX=[], curY=[];
-      filteredData.forEach(p=>{
-          if(p.valor==null){
-              if(curX.length){
-                  plotData.push({ type:'scatter', mode:'lines', x:curX, y:curY, showlegend:false, line:{color:'black', width:1}, connectgaps:false });
-                  curX=[]; curY=[];
-              }
-          } else {
-              curX.push(p.datetime);
-              curY.push(p.valor);
-          }
-      });
-      if(curX.length) plotData.push({ type:'scatter', mode:'lines', x:curX, y:curY, line:{width:1.5}, showlegend:false });
+        plotData.push({
+          type: 'scatter',
+          mode: 'lines',
+          x: filteredData.map(p => p.datetime),
+          y: filteredData.map(p => p.valor), // contém null onde não há dado
+          line: { color: 'steelblue', width: 1.5 },
+          connectgaps: false,   // <- ESSENCIAL
+          name: pollutant
+        });
+
 
       var layout = {
           title:`Série temporal - ${pollutant}`,
@@ -826,6 +828,41 @@ function doPlot() {
 
   Plotly.newPlot('plotDiv', plotData, layout, {responsive:true});
   document.getElementById('downloadBtn').disabled = filteredData.length===0;
+   // --- BUILD EXCEEDANCE TABLE ---
+  buildExceedanceTable(fasesForPol, numericVals);
+}
+
+function buildExceedanceTable(fasesForPol, numericVals) {
+  const container = document.getElementById('statsTable');
+  container.innerHTML = ""; // reset
+
+  if (!numericVals.length || !fasesForPol.length) {
+    container.innerHTML = "<p><i>Sem dados ou padrões para calcular excedências.</i></p>";
+    return;
+  }
+
+  let html = "<table border='1' cellspacing='0' cellpadding='4' style='border-collapse:collapse; width:100%; text-align:center'>";
+  html += "<thead><tr style='background:#f0f0f0'><th>Padrão</th><th>Limite (µg/m³)</th><th>Excedências</th><th>% Excedência</th></tr></thead><tbody>";
+
+  const n = numericVals.length;
+
+  fasesForPol.forEach(r => {
+    let y1 = parseFloat(String(r.y1||'').replace(',','.'));
+    if (isNaN(y1)) return;
+
+    const exceedCount = numericVals.filter(v => v > y1).length;
+    const perc = ((exceedCount / n) * 100).toFixed(1);
+
+    html += `<tr style="background:${r.color || 'transparent'}20">
+      <td>${r.phase || '-'}</td>
+      <td>${y1}</td>
+      <td>${exceedCount}</td>
+      <td>${perc}%</td>
+    </tr>`;
+  });
+
+  html += "</tbody></table>";
+  container.innerHTML = html;
 }
 
 
@@ -878,7 +915,7 @@ function downloadFilteredCSV(){
        title="previous page">
       <i class="fa-solid fa-angle-left"></i>
       <div class="prev-next-info">
-        <p class="prev-next-subtitle">previous</p>
+        <p class="prev-next-subtitle">anterior</p>
         <p class="prev-next-title">4.2. Análise de tendências e sazonalidade da qualidade do ar no Brasil - CAMILO</p>
       </div>
     </a>
@@ -886,7 +923,7 @@ function downloadFilteredCSV(){
        href="sec04_4.html"
        title="next page">
       <div class="prev-next-info">
-        <p class="prev-next-subtitle">next</p>
+        <p class="prev-next-subtitle">próximo</p>
         <p class="prev-next-title">4.4.	Designação de áreas de atendimento e não atendimento dos padrões de qualidade do ar - CAMILO</p>
       </div>
       <i class="fa-solid fa-angle-right"></i>
@@ -907,7 +944,7 @@ function downloadFilteredCSV(){
   <div class="footer-item">
     
 <p class="component-author">
-By MMA
+De MMA
 </p>
 
   </div>

@@ -48,21 +48,12 @@ gdf.head()
 
 
 [31m---------------------------------------------------------------------------[39m
-[31mNameError[39m                                 Traceback (most recent call last)
-[36mCell[39m[36m [39m[32mIn[1][39m[32m, line 2[39m
-[32m      1[39m [38;5;28;01mimport[39;00m[38;5;250m [39m[34;01mos[39;00m
-[32m----> [39m[32m2[39m [38;5;28;01mimport[39;00m[38;5;250m [39m[34;01mscripts[39;00m[34;01m.[39;00m[34;01mstationsLandUse[39;00m[38;5;250m [39m[38;5;28;01mas[39;00m[38;5;250m [39m[34;01mstLU[39;00m
-[32m      4[39m rootDir = os.getcwd()
+[31mTypeError[39m                                 Traceback (most recent call last)
+[36mCell[39m[36m [39m[32mIn[1][39m[32m, line 7[39m
 [32m      5[39m file = [33m'[39m[33mMonitoramento_QAr_BR_latlon_2024.csv[39m[33m'[39m
+[32m      6[39m bufferSize = [32m1000[39m
+[32m----> [39m[32m7[39m gdf = [43mstLU[49m[43m.[49m[43mstationBuffers[49m[43m([49m[43mrootDir[49m[43m,[49m[43mfile[49m[43m,[49m[43mbufferSize[49m[43m)[49m
+[32m      8[39m gdf.head()
 
-[36mFile [39m[32m~/Notebooks/.venv/lib/python3.13/site-packages/scripts/stationsLandUse.py:1[39m
-[32m----> [39m[32m1[39m [43mw[49m[38;5;66;03m#!/usr/bin/env python3[39;00m
-[32m      2[39m [38;5;66;03m# -*- coding: utf-8 -*-[39;00m
-[32m      3[39m [33;03m"""[39;00m
-[32m      4[39m [33;03mCreated on Wed Sep 11 10:45:33 2024[39;00m
-[32m      5[39m 
-[32m      6[39m [33;03m@author: leohoinaski[39;00m
-[32m      7[39m [33;03m"""[39;00m
-
-[31mNameError[39m: name 'w' is not defined
+[31mTypeError[39m: stationBuffers() takes 2 positional arguments but 3 were given
 

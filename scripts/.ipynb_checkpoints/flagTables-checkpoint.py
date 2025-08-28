@@ -65,7 +65,16 @@ columns_names = {
     'MONITORAR':    'Integrado no MONITORAR?',
     'FONTE':        'Fonte',
     'REGIAO':       'Região',
-    'FLAG':         ''
+    'FLAG':         '',
+    'FINALIDADE':   'Finalidade',
+    'ELEVACAO':     'Elevação', 
+    'Indicativa':   'Indicativa',
+    'INDICATIVA':   'Indicativa',
+    'Referencia':   'Referência',
+    'REFERENCIA':   'Referência',
+    'REFERÊNCIA':   'Referência',
+    
+    
 }
 # ---------------------------------Funções-----------------------------------------------
 
@@ -198,7 +207,7 @@ def table_constructor(columns_selector = ['FLAG','UF', 'Realiza monitoramento?',
     rootPath = os.path.dirname(os.getcwd())
     
     # Lendo o csv
-    aqmData = pd.read_csv(rootPath+'/data/Monitoramento_QAr_BR.csv',encoding = 'unicode_escape')
+    aqmData = pd.read_csv(rootPath+'/data/Monitoramento_QAr_BR.csv')
 
     # Criando coluna 'Realiza monitoramento?'
     aqmData['Realiza monitoramento?'] = 'Sim'
@@ -299,7 +308,7 @@ def table01():
     rootPath = os.path.dirname(os.getcwd())
     
     # Lendo o csv
-    aqmData = pd.read_csv(rootPath+'/data/Monitoramento_QAr_BR.csv',encoding = 'unicode_escape')
+    aqmData = pd.read_csv(rootPath+'/data/Monitoramento_QAr_BR.csv')
     
     # Selecionando apenas Estado e Fonte e removendo redundâncias
     aqmData = aqmData.drop_duplicates(subset=['UF', 'FONTE'])
@@ -374,7 +383,7 @@ def table05():
     rootPath = os.path.dirname(os.getcwd())
     
     # Lendo o csv
-    aqmData = pd.read_csv(rootPath+'/data/Monitoramento_QAr_BR.csv',encoding = 'unicode_escape')
+    aqmData = pd.read_csv(rootPath+'/data/Monitoramento_QAr_BR.csv')
     #print(aqmData.columns)
     # Selecionando apenas estações ativas
     aqmData = aqmData[aqmData['STATUS']=='Ativa']
@@ -410,25 +419,47 @@ def table05():
     # Sort by region order and then by UF order
     aqmData = aqmData.sort_values('ORDEM').drop(columns='ORDEM').reset_index(drop=True)
     #print(aqmData)
-    
-    aqmDisplay = aqmData[['FLAG','UF', 'Indicativa', 'Referencia','REGIAO']]
-    aqmDisplay = aqmDisplay.rename(columns={"FLAG": "", "UF": "UF",'Indicativa':'Indicativa',"Referencia": "Referência","REGIAO": "Região"})
-    aqmDisplay = aqmDisplay.fillna(0)
-    aqmDisplay['Indicativa'] = aqmDisplay['Indicativa'].astype(int)
-    aqmDisplay['Referência'] = aqmDisplay['Referência'].astype(int)
-    rows = []
 
-    #print(aqmDisplay.groupby('Região'))
+    try:
+        aqmDisplay = aqmData[['FLAG','UF', 'Indicativa', 'Referencia','REGIAO']]
+        aqmDisplay = columns_renamer(aqmDisplay)
     
-    for group, data in aqmDisplay.groupby('Região', sort=False):
-        rows.append({'': '', 'UF': group, 'Indicativa': '', 'Referência': '','Região':''})  
-        rows.extend(data.to_dict('records'))
-        # Add separator row: None or '' to create empty row
-        rows.append({'': '', 'UF': '','Indicativa': '', 'Referência':'', 'Região':''})  
+        aqmDisplay = aqmDisplay.fillna(0)
+        aqmDisplay['Indicativa'] = aqmDisplay['Indicativa'].astype(int)
+        aqmDisplay['Referência'] = aqmDisplay['Referência'].astype(int)
+        rows = []
     
-    # Add a blank row at the beginning
-    blank_row = {'': '', 'UF': '', 'Indicativa': '', 'Referência':'', 'Região':''}
-    rows.insert(0, blank_row)
+        #print(aqmDisplay.groupby('Região'))
+        
+        for group, data in aqmDisplay.groupby('Região', sort=False):
+            rows.append({'': '', 'UF': group, 'Indicativa': '', 'Referência': '','Região':''})  
+            rows.extend(data.to_dict('records'))
+            # Add separator row: None or '' to create empty row
+            rows.append({'': '', 'UF': '','Indicativa': '', 'Referência':'', 'Região':''})  
+        
+        # Add a blank row at the beginning
+        blank_row = {'': '', 'UF': '', 'Indicativa': '', 'Referência':'', 'Região':''}
+        rows.insert(0, blank_row)
+    except:
+        aqmDisplay = aqmData[['FLAG','UF', 'Referencia','REGIAO']]
+        aqmDisplay = columns_renamer(aqmDisplay)
+    
+        aqmDisplay = aqmDisplay.fillna(0)
+        #aqmDisplay['Indicativa'] = aqmDisplay['Indicativa'].astype(int)
+        aqmDisplay['Referência'] = aqmDisplay['Referência'].astype(int)
+        rows = []
+    
+        #print(aqmDisplay.groupby('Região'))
+        
+        for group, data in aqmDisplay.groupby('Região', sort=False):
+            rows.append({'': '', 'UF': group, 'Referência': '','Região':''})  
+            rows.extend(data.to_dict('records'))
+            # Add separator row: None or '' to create empty row
+            rows.append({'': '', 'UF': '', 'Referência':'', 'Região':''})  
+        
+        # Add a blank row at the beginning
+        blank_row = {'': '', 'UF': '',  'Referência':'', 'Região':''}
+        rows.insert(0, blank_row)
         
     df_with_separators = pd.DataFrame(rows)
     df_with_separators = df_with_separators.drop(columns=['Região'])
@@ -453,7 +484,7 @@ def table06():
     rootPath = os.path.dirname(os.getcwd())
     
     # Lendo o csv
-    aqmData = pd.read_csv(rootPath+'/data/Monitoramento_QAr_BR.csv', encoding = 'unicode_escape')
+    aqmData = pd.read_csv(rootPath+'/data/Monitoramento_QAr_BR.csv')
 
     aqmData['ID_OEMA'] = aqmData['ID_OEMA'].str.replace(' ', '') 
     
@@ -528,7 +559,7 @@ def table07():
     rootPath = os.path.dirname(os.getcwd())
     
     # Lendo o csv
-    aqmData = pd.read_csv(rootPath+'/data/Monitoramento_QAr_BR.csv',encoding = 'unicode_escape')
+    aqmData = pd.read_csv(rootPath+'/data/Monitoramento_QAr_BR.csv')
 
     aqmData['ID_OEMA'] = aqmData['ID_OEMA'].str.replace(' ', '') 
     
@@ -537,6 +568,7 @@ def table07():
     #print(aqmData.head())
     
     # Selecionando apenas Estado e Fonte e removendo redundâncias
+    aqmData['POLUENTE'] = aqmData['POLUENTE'].str.upper() 
     aqmData = aqmData.groupby('UF')['POLUENTE'].value_counts().unstack(fill_value=0)
     numeric_cols = aqmData.select_dtypes(include=['number']).columns
     aqmData[numeric_cols] = aqmData[numeric_cols].astype('Int64')
@@ -558,7 +590,7 @@ def table07():
 
     #Create a new column with HTML img tag
     aqmData['FLAG'] = aqmData['UF'].apply(
-        lambda uf: f'<img src= "../_static/bandeiras/{uf}.png" width="100">'
+        lambda uf: f'<img src= "../_static/bandeiras/{uf}.png" width="20">'
     ).astype(str)
 
         
@@ -576,7 +608,7 @@ def table07():
         # Add separator row: None or '' to create empty row
         rows.append({'': '', 'UF': ''})  
     
-    # Add a blank row at the beginning
+    # Add a blank row at the beginningí
     blank_row = {'': '', 'UF': ''}
     rows.insert(0, blank_row)
         
@@ -594,7 +626,10 @@ def table07():
         .apply(style_all_white, axis=1)
         .hide(axis="index")  # ✅ hide the index column
         .set_table_styles([
-        {'selector': 'th', 'props': [('text-align', 'center')]}  # center header text
+        {'selector': 'th', 'props': [
+            ('text-align', 'center'),
+            ('font-size', '7pt')  # change font size here
+        ]}  # center header text
     ])
     )
 
@@ -650,8 +685,9 @@ def tabela_iterativa(aqmData, searchPaneColumns):
     opt.style = "font-size: 11px; white-space: normal;div.dt-buttons button {font-size: 10px !important; padding: 4px 6px;"  # Apply font size and enable wrapping
     opt.lengthMenu = [5, 10, 25]
     return show(aqmData, 
-             buttons=["copyHtml5", "csvHtml5", "excelHtml5","columnsToggle"],
-             layout={"top1": "searchPanes"},
+             #buttons=["copyHtml5", "csvHtml5", "excelHtml5","columnsToggle"],
+             buttons=["copyHtml5", "csvHtml5"],
+             layout={"top2": "searchPanes"},
              searchPanes={"layout": "columns-3", "cascadePanes": True, "columns": searchPaneColumns},
              allow_html=True,
              keys=True,
@@ -695,14 +731,14 @@ def flagTable(columnsSelector):
     rootPath = os.path.dirname(os.getcwd())
     
     # Lendo o csv
-    aqmData = pd.read_csv(rootPath+'/data/Monitoramento_QAr_BR.csv',encoding = 'unicode_escape')
+    aqmData = pd.read_csv(rootPath+'/data/Monitoramento_QAr_BR.csv')
     aqmData['ID_OEMA'] = aqmData['ID_OEMA'].str.replace(' ', '') 
     aqmData['POLUENTE'] = aqmData['POLUENTE'].str.upper()
 
     # Remove colunas com todos valores iguais a NaN
-    aqmData = aqmData.dropna(axis=1, how='all')
-
-    remaining_columns = aqmData.columns[aqmData.columns != 'POLUENTE'].tolist()
+    #aqmData = aqmData.dropna(axis=1, how='all')
+    aqmData = aqmData.fillna('-')
+    remaining_columns = aqmData.columns[(aqmData.columns != 'POLUENTE') & (aqmData.columns != 'ID_MMA_COMPLETO') & (aqmData.columns != 'COD_POLUENTE')].tolist()
     #print(remaining_columns)
     
     # Agrupamento por estado quando tivermos mais de uma fonte de informação

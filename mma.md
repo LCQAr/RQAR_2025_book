@@ -19,10 +19,16 @@ Thaianne Resende Henriques Fábio
 ## Coordenadoria-geral de Qualidade Ambiental
 Cayssa Peres Marcondes de Araújo
 
-**Ministério do Meio Ambiente e Mudança do Clima**  
-Secretaria Nacional de Meio Ambiente Urbano e Qualidade Ambiental  
-Esplanada dos Ministérios, Bloco B  
-Brasília/DF, CEP 70068-900  
-www.mma.gov.br    
+ 
 
-![MMA_deitado](media/images/MMA_deitado.jpg)
+<br>
+
+
+<div style="text-align: left;font-size: 9pt;"">
+    Ministério do Meio Ambiente e Mudança do Clima <br>
+    Secretaria Nacional de Meio Ambiente Urbano e Qualidade Ambiental  <br>
+    Esplanada dos Ministérios, Bloco B  <br>
+    Brasília/DF, CEP 70068-900  <br>
+    www.mma.gov.br <br>
+</div>
+  

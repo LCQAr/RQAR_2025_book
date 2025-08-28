@@ -1,4 +1,4 @@
-w#!/usr/bin/env python3
+#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
 Created on Wed Sep 11 10:45:33 2024
@@ -17,9 +17,9 @@ import numpy as np
 import ismember
 
 
-def stationBuffers(rootDir,file,bufferSize): 
-    inputFolder = rootDir+'/inputs/MonitoramentoQAr'
-    df = pd.read_csv(inputFolder+'/'+file, encoding='ISO-8859-1')
+def stationBuffers(station_path,bufferSize): 
+    #inputFolder = rootDir+'/inputs/MonitoramentoQAr'
+    df = pd.read_csv(station_path)
     geometry = [Point(xy) for xy in zip(df.LONGITUDE, df.LATITUDE)]
     gdf = gpd.GeoDataFrame(df, crs="EPSG:4326", geometry=geometry)
     gdf = gdf.set_crs(4326, allow_override=True)
@@ -32,18 +32,18 @@ def stationBuffers(rootDir,file,bufferSize):
 
 def stationUnionByUF(gdf):
     stationInUF=[]
-    for index, uf in enumerate(gdf['ESTADO'].unique()):
-       stationInUF.append(gdf['buffer'][gdf['ESTADO']==uf].unary_union)
+    for index, uf in enumerate(gdf['UF'].unique()):
+       stationInUF.append(gdf['buffer'][gdf['UF']==uf].unary_union)
        
     stationInUF = pd.DataFrame(stationInUF,columns=["geometry"])   
     stationInUF = gpd.GeoDataFrame(stationInUF, geometry=stationInUF['geometry'],
                                    crs="EPSG:4326")
-    stationInUF['ESTAÇÃO'] = gdf['ESTADO'].unique()
+    stationInUF['ID_OEMA'] = gdf['UF'].unique()
     stationInUF['buffer'] = stationInUF['geometry'].copy() 
     
     return stationInUF
 
-def cutMapbiomas(gdf,year,prefix,pixelSize):
+def cutMapbiomas(inputFolder,gdf,year,prefix,pixelSize):
     """
     Esta função é utilizada para cortar o arquivo do Mapbiomas para o domínio 
     de modelagem. Se o domínio for muito grande, ela simplesmente lê o arquivo
@@ -72,9 +72,9 @@ def cutMapbiomas(gdf,year,prefix,pixelSize):
         Array do raster.
 
     """
-    rootDir = os.path.dirname(os.getcwd())
-    inputFolder = rootDir+'/inputs'
-    outfolder = rootDir+'/outputs/mapbiomas'
+    #rootDir = os.path.dirname(os.getcwd())
+    #inputFolder = rootDir+'/MAPBIOMAS'
+    outfolder =inputFolder+'/outputs'
     os.makedirs(outfolder, exist_ok=True)
     
     dfLegend = pd.read_csv(inputFolder+'/mapbiomasLegend.csv')
@@ -85,7 +85,7 @@ def cutMapbiomas(gdf,year,prefix,pixelSize):
 
     for index, row in gdf.iterrows():
         # Abrindo o arquivo do MAPBIOMAS
-        with rs.open(inputFolder+'/brasil_coverage_'+str(year)+'.tif') as src:
+        with rs.open(inputFolder+'/brazil_coverage_'+str(year)+'.tif') as src:
     
             # Tenta abrir e cortar o arquivo. Se for muito grande, não cortará e passará
             # para o except
@@ -105,7 +105,7 @@ def cutMapbiomas(gdf,year,prefix,pixelSize):
             # Se conseguir recortar...
             if out_meta:   
                 # Abre um novo arquvio e salva na pasta de outputs recortado
-                with rs.open(outfolder+'/mapbiomas_'+row['ESTAÇÃO'].replace('/','')+'.tif', "w", **out_meta) as dest:
+                with rs.open(outfolder+'/mapbiomas_'+row['ID_OEMA'].replace('/','')+'.tif', "w", **out_meta) as dest:
                     dest.write(out_image)
 
      
@@ -122,7 +122,7 @@ def cutMapbiomas(gdf,year,prefix,pixelSize):
     gdf.to_csv(outfolder+'/'+prefix+'stationsLandUseNoGeometry.csv') 
     return gdf
 
-def cutMapbiomasSimple(gdf,year,pixelSize):
+def cutMapbiomasSimple(inputFolder, gdf,year,pixelSize):
     """
     Esta função é utilizada para cortar o arquivo do Mapbiomas para o domínio 
     de modelagem. Se o domínio for muito grande, ela simplesmente lê o arquivo
@@ -152,8 +152,8 @@ def cutMapbiomasSimple(gdf,year,pixelSize):
 
     """
     rootDir = os.path.dirname(os.getcwd())
-    inputFolder = rootDir+'/inputs'
-    outfolder = rootDir+'/outputs/mapbiomas'
+    #inputFolder = rootDir+'/inputs'
+    outfolder =inputFolder+'/outputs'
     os.makedirs(outfolder, exist_ok=True)
     
     dfLegend = pd.read_csv(inputFolder+'/mapbiomasLegend.csv')
@@ -164,7 +164,7 @@ def cutMapbiomasSimple(gdf,year,pixelSize):
 
     for index, row in gdf.iterrows():
         # Abrindo o arquivo do MAPBIOMAS
-        with rs.open(inputFolder+'/brasil_coverage_'+str(year)+'.tif') as src:
+        with rs.open(inputFolder+'/brazil_coverage_'+str(year)+'.tif') as src:
     
             # Tenta abrir e cortar o arquivo. Se for muito grande, não cortará e passará
             # para o except
@@ -190,12 +190,14 @@ def cutMapbiomasSimple(gdf,year,pixelSize):
     gdf.to_csv(outfolder+'/UFLandUse.csv') 
     return gdf
 
-def statsByUF(gdfUFstations,year):
-    rootDir = os.path.dirname(os.getcwd())
-    inputFolder = rootDir+'/inputs'
-    outfolder = rootDir+'/outputs/mapbiomas'
+def statsByUF(inputFolder,gdfUFstations,year):
+    #rootDir = os.path.dirname(os.getcwd())
+    #inputFolder = rootDir+'/inputs'
+    outfolder =inputFolder+'/outputs'
+
+    #outfolder = rootDir+'/outputs/mapbiomas'
     
-    mapbioStats = pd.read_csv(inputFolder+'/mapbiomasStatisticsByUF.csv')
+    mapbioStats = pd.read_csv(outfolder+'/mapbiomasStatisticsByUF.csv')
     dfLegend = pd.read_csv(inputFolder+'/mapbiomasLegend.csv')
     for dl in dfLegend['Code ID']:
         gdfUFstations['AREAUF_'+str(dl)] = np.nan  
@@ -203,10 +205,10 @@ def statsByUF(gdfUFstations,year):
     gdfUFstations['AREA_TOTAL']=np.nan
     
     for index, row in gdfUFstations.iterrows():
-        gdfUFstations['AREA_TOTAL'][index] = np.sum(mapbioStats[str(year)][mapbioStats.UF==row['ESTAÇÃO']])*pixelSize
+        gdfUFstations['AREA_TOTAL'][index] = np.sum(mapbioStats[str(year)][mapbioStats.UF==row['ID_OEMA']])*pixelSize
         for dl in dfLegend['Code ID']:
             gdfUFstations['AREAUF_'+str(dl)][index]= np.sum(
-                mapbioStats[str(year)][(mapbioStats.UF==row['ESTAÇÃO']) & 
+                mapbioStats[str(year)][(mapbioStats.UF==row['ID_OEMA']) & 
                                        (mapbioStats['class']==dl)])*10000
     #gdfUFstations = gdf.drop(columns=['geometry']) 
     #gdfUFstations = gdf.drop(columns=['buffer']) 
@@ -225,19 +227,3 @@ def majorLandUse(gdf,inputFolder):
     gdf['majorLandUse'] = majorLU
     return gdf
 
-#file = 'Monitoramento_QAr_BR_latlon_2024.csv'
-#bufferSize = 1000
-#year = 2022
-#pixelSize = 30*30
-#rootDir = os.path.dirname(os.getcwd())
-#inputFolder = rootDir+'/inputs'
-
-#gdf = stationBuffers(file,bufferSize)
-
-#gdf = cutMapbiomas(gdf,year,'',pixelSize)
-
-#stationInUF = stationUnionByUF(gdf)
-
-#gdfUFstations = cutMapbiomas(stationInUF,year,'UF',pixelSize)
-
-#statsByUF(gdfUFstations,year)

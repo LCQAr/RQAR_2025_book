@@ -50,7 +50,16 @@ columns_names = {
     'MONITORAR':    'Integrado no MONITORAR?',
     'FONTE':        'Fonte',
     'REGIAO':       'Região',
-    'FLAG':         ''
+    'FLAG':         '',
+    'FINALIDADE':   'Finalidade',
+    'ELEVACAO':     'Elevação', 
+    'Indicativa':   'Indicativa',
+    'INDICATIVA':   'Indicativa',
+    'Referencia':   'Referência',
+    'REFERENCIA':   'Referência',
+    'REFERÊNCIA':   'Referência',
+    
+    
 }
 
 
@@ -177,14 +186,20 @@ def spatial_rede_monitoramento(columnRef,columnsToltip,cmap):
     rootPath = os.path.dirname(os.getcwd())
     
     # Lendo o csv
-    aqmData = pd.read_csv(rootPath+'/data/Monitoramento_QAr_BR.csv',encoding = 'unicode_escape')
+    aqmData = pd.read_csv(rootPath+'/data/Monitoramento_QAr_BR.csv')
     aqmData['ID_OEMA'] = aqmData['ID_OEMA'].str.replace(' ', '') 
     aqmData['POLUENTE'] = aqmData['POLUENTE'].str.upper()
-
+    aqmData.drop(aqmData.columns[aqmData.columns.str.contains('unnamed', case=False)], axis=1, inplace=True)
     # Remove colunas com todos valores iguais a NaN
-    aqmData = aqmData.dropna(axis=1, how='all')
-
-    remaining_columns = aqmData.columns[aqmData.columns != 'POLUENTE'].tolist()
+    #aqmData = aqmData.dropna(axis=1, how='all')
+    #print(aqmData.head)
+    aqmData = aqmData[aqmData['LATITUDE'].notna()]
+    aqmData = aqmData[aqmData['LONGITUDE'].notna()]
+    aqmData = aqmData[aqmData['POLUENTE'].notna()]
+    
+    # Agrupamento por estado quando tivermos mais de uma fonte de informação
+    aqmData = aqmData.fillna('-')
+    remaining_columns = aqmData.columns[(aqmData.columns != 'POLUENTE') & (aqmData.columns != 'ID_MMA_COMPLETO') & (aqmData.columns != 'COD_POLUENTE')].tolist()
     #print(remaining_columns)
     
     # Agrupamento por estado quando tivermos mais de uma fonte de informação
@@ -200,13 +215,13 @@ def spatial_rede_monitoramento(columnRef,columnsToltip,cmap):
     gdf = gpd.GeoDataFrame(
         aqmDataGrouped, geometry=gpd.points_from_xy(aqmDataGrouped.LONGITUDE, aqmDataGrouped.LATITUDE), crs="EPSG:4326"
     )
-
+    #print(gdf.head)
     # Renomeando colunas com primeira letra em maiúsculo
     gdf = columns_renamer(gdf)
-    #print(gdf)
-
+    
     # Extrai o centroide dos locais onde existe monitoramento para centralizar o mapa
     center_geom = gdf.unary_union.centroid
+    #print(center_geom)
     center = [center_geom.y, center_geom.x]
 
     # Cria um mapa padrão
