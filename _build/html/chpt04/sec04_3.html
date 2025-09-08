@@ -488,29 +488,90 @@ TENTAR FAZER UMA TABELA ITERATIVA ONDE O USUÁRIO POSSA FILTRAR AS ESTAÇÕES</p
 <div class="highlight-none notranslate"><div class="highlight"><pre><span></span>TENTAR FAZER UM DROPDOWN MENU PARA ESCOLHER QUAL SÉRIE TEMPORAL VISUALIZAR NO LIVRO. Colocar padrões da CONAMA. 
 </pre></div>
 </div>
+<!-- Estilo -->
+<style>
+/* Reestilizando botões */
+.btn {
+  appearance: none;
+  background-color: #FAFBFC;
+  border: 1px solid rgba(27, 31, 35, 0.15);
+  border-radius: 6px;
+  box-shadow: rgba(27, 31, 35, 0.04) 0 1px 0, rgba(255, 255, 255, 0.25) 0 1px 0 inset;
+  box-sizing: border-box;
+  color: #24292E;
+  cursor: pointer;
+  display: inline-block;
+  font-family: -apple-system, system-ui, "Segoe UI", Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji";
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 20px;
+  list-style: none;
+  padding: 6px 16px;
+  position: relative;
+  transition: background-color 0.2s cubic-bezier(0.3, 0, 0.5, 1);
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: manipulation;
+  vertical-align: middle;
+  white-space: nowrap;
+  word-wrap: break-word;
+  background: unset;
+}
+
+.btn:hover {
+  background-color: #F3F4F6;
+  text-decoration: none;
+  transition-duration: 0.1s;
+}
+
+.btn:disabled {
+  background-color: #FAFBFC;
+  border-color: rgba(27, 31, 35, 0.15);
+  color: #959DA5;
+  cursor: default;
+}
+
+.btn:active {
+  background-color: #EDEFF2;
+  box-shadow: rgba(225, 228, 232, 0.2) 0 1px 0 inset;
+  transition: none 0s;
+}
+
+.btn:focus {
+  outline: 1px transparent;
+}
+
+.btn:before {
+  display: none;
+}
+
+.btn:-webkit-details-marker {
+  display: none;
+} 
+</style>
 <!-- Dependencies -->
 <script src="https://cdn.plot.ly/plotly-2.26.1.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
 <div>
-  <label>Station:</label>
+  <label>Estação:</label>
   <select id="stationSelect"></select>
-<p><label>Pollutant:</label>
+<p><label>Poluente:</label>
 <select id="pollutantSelect"></select></p>
-<p><label>Average Time:</label>
+<p><label>Tempo de média:</label>
 <select id="aveTimeSelect"></select></p>
-<p><label>Start date:</label>
+<p><label>Início:</label>
 <input type="datetime-local" id="startDate"></p>
-<p><label>End date:</label>
+<p><label>Fim:</label>
 <input type="datetime-local" id="endDate"></p>
-<p><button id="loadDataBtn">Load Data</button>
-<button id="plotBtn" disabled>Plot Data</button>
-<button id="downloadBtn" disabled>Download CSV</button></p>
+<p><button id="loadDataBtn" class="btn">Load Data</button>
+<button id="plotBtn" class="btn" disabled>Plot Data</button>
+<button id="downloadBtn" class="btn" disabled>Download CSV</button></p>
 </div>
 <div id="plotDiv" style="width:100%; height:600px;"></div>
 <div id="statsTable" style="margin-top:20px;"></div>
 <script>
-const DATA_FOLDER = 'https://lcqar.ufsc.br/files/2023';
-const METADATA_CSV = 'https://lcqar.ufsc.br/files/2023/Monitoramento_QAr_BR_teste.csv';
+const DATA_FOLDER = 'https://lcqar.ufsc.br/files/RQAr_2025/MQAr';
+const METADATA_CSV = 'https://lcqar.ufsc.br/files/RQAr_2025/Monitoramento_QAr_BR.csv';
 const FASES_CSV = '../_static/fases_CONAMA506.csv';
 
 let metadata = [];
@@ -643,7 +704,24 @@ function loadStationData() {
     alert('Selecione estação e poluente antes de carregar dados.');
     return;
   }
-  const fileUrl = `${DATA_FOLDER}/${encodeURIComponent(pollutant)}/${encodeURIComponent(station)}.csv`;
+
+  // 👉 Busca no metadata o registro certo
+  const row = metadata.find(r => (r.ID_MMA || '').trim() === station && (r.POLUENTE || '').trim() === pollutant);
+  if (!row) {
+    alert("Não encontrei combinação estação + poluente no metadata.");
+    return;
+  }
+
+  // 👉 pega o ID do poluente
+  const pollutantId = (row.ID_MMA_COMPLETO || '').trim();  // ajuste o nome da coluna se necessário
+  if (!pollutantId) {
+    alert("Não foi possível identificar o ID do poluente no metadata.");
+    return;
+  }
+  // 👉 monta a URL final com station + pollutantId
+  const filename = `${pollutantId}.csv`;
+  const fileUrl = `${DATA_FOLDER}/${encodeURIComponent(pollutant)}/${encodeURIComponent(filename)}`;
+
   Papa.parse(fileUrl, {
     download: true,
     header: true,
@@ -772,11 +850,41 @@ function doPlot() {
         if (r.phase==='PI-1') y1 = maxVal;
     }
 
-    if(Number.isNaN(y0)||Number.isNaN(y1)) return null;
-    return {type:'rect', xref:'paper', x0:0, x1:1, y0, y1, fillcolor:r.color||'rgba(200,200,200,0.3)', opacity:0.3, line:{width:0}, layer:'below'};
+    if(Number.isNaN(y0)&&Number.isNaN(y1)) return null;
+    if((!Number.isNaN(y0))&&Number.isNaN(y1)) {
+      return {
+        type:'rect',
+        xref:'paper',
+        x0:0, x1:1,
+        y0, y1: maxVal,
+        fillcolor:r.color||'rgba(200,200,200,0.3)',
+        line:{width:0},
+        layer:'below',
+        name: r.phase
+      };  
+    }
+    return {
+      type:'rect',
+      xref:'paper',
+      x0:0, x1:1,
+      y0, y1,
+      fillcolor:r.color||'rgba(200,200,200,0.3)',
+      line:{width:0},
+      layer:'below',
+      name: r.phase
+    };
   }).filter(Boolean);
 
-  const plotData = [];
+  const shapeLegends = plotShapes.map(shape => {
+    return {
+      x: [null], y: [null],
+      mode: "lines",
+      line: {color: shape.fillcolor, width: 10},
+      name: shape.name
+    }
+  })
+
+  let plotData = [];
 
   if (ave_time.includes("year") || ave_time.includes("ano") || ave_time.includes("anual") || ave_time.includes("annual")) {
       // --- ANNUAL BAR PLOT ---
@@ -802,7 +910,8 @@ function doPlot() {
           shapes: plotShapes,
           title: `Série anual - ${pollutant}`,
           hovermode: 'x unified',
-          plot_bgcolor: 'rgba(0.9,0.9,0.9,0.3)'
+          plot_bgcolor: 'rgba(0.9,0.9,0.9,0.3)',
+          showlegend: true,
       };
   } else {
         plotData.push({
@@ -822,15 +931,19 @@ function doPlot() {
           plot_bgcolor:'rgba(0.9,0.9,0.9,0.3)',
           yaxis:{title:'Concentração', range:[0,maxVal], rangemode:'nonnegative'},
           xaxis:{title:'Data/Hora'},
-          shapes: plotShapes
+          shapes: plotShapes,
+          showlegend: true,
       };
   }
 
+  plotData = plotData.concat(shapeLegends);
+
   Plotly.newPlot('plotDiv', plotData, layout, {responsive:true});
   document.getElementById('downloadBtn').disabled = filteredData.length===0;
-   // --- BUILD EXCEEDANCE TABLE ---
+  // --- BUILD EXCEEDANCE TABLE ---
   buildExceedanceTable(fasesForPol, numericVals);
 }
+
 
 function buildExceedanceTable(fasesForPol, numericVals) {
   const container = document.getElementById('statsTable');

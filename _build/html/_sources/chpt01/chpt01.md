@@ -5,12 +5,9 @@
 <div style="text-align: justify"> O Relatório Anual de Acompanhamento da Qualidade do Ar compila as informações disponibilizadas pelos órgãos ambientais estaduais e distrital, dando publicidade e transparência à gestão da qualidade do ar em escala nacional. Este relatório atende as demandas da Resolução Conama nº 491 de 2018, no âmbito de seu Artigo 9º, que estabelece que o MMA deve elaborar o relatório anual de acompanhamento e apresentá-lo na última reunião ordinária do Conama de cada ano.</div><br/>
 <div style="text-align: justify">O relatório apresenta o número de estações de monitoramento da qualidade do ar no Brasil, sua distribuição e abrangência espacial, tipos de poluentes analisados, população e usos do solo cobertos pelo monitoramento. Um exercício preliminar de análise dos dados coletados pelos estados é apresentado para fins didáticos e demonstrativos. Também são abordados temas como perspectivas de ampliação da rede de monitoramento, comunicação e divulgação dos dados e publicações científicas associadas à qualidade do ar no Brasil. </div>
 
-<br>
-
 ```{warning}
 Alguns OEMAs informaram ter recebido os dados para o ano de 2023 somente mediante o envio de relatórios periódicos de empreendimentos licenciados que realizam o monitoramento, o que não permite o acesso aos dados em sua fonte. Nos casos em que os dados desses OEMAs estavam disponíveis no Sistema MonitorAr, estes foram utilizados.
 ```
-
 
 <div style="text-align: justify">Ainda, foram compiladas as informações sobre os Relatórios de Avaliação de Qualidade do Ar, Planos de Controle de Emissão Atmosférica e Inventários de Emissões Atmosféricas dos OEMAs. Essa compilação foi conduzida a partir das informações disponíveis nas páginas eletrônicas de cada OEMA e das respostas ao questionário aplicado pelo MMA. </div>
 

@@ -56,7 +56,7 @@ station_parameters_dict = {
 df_parametros = pd.DataFrame(station_parameters_dict.items(), columns=["parameter_name", "parameter_id"])
 
 # ---------------------------------- Estações ----------------------------------
-stations_dict = {
+stations_dict_automaticas = {
     12: "RJ - Largo do Bodegão",
     18: "BR - São Bernardo",
     19: "NI - Monteiro Lobato",
@@ -180,7 +180,7 @@ stations_dict = {
     804: "Itg - Brisamar"
 }
 
-stations_manual = {
+stations_dict = {
     # Região da Costa Verde
     201: "S - AR - Ilha Grande - UERJ",
     727: "S - Mt - Ilha Guaíba",
@@ -513,8 +513,8 @@ if __name__ == "__main__":
     print('@author: leohoinaski')
 
     # Definindo anos de coleta e caminho para os arquivos de saída
-    years = np.arange(2000, 2018)  
-    out_folder = '/home/nobre/Notebooks/RQAR_2025_book/data/RJ'
+    years = np.arange(1990, 2001)  
+    out_folder = '/home/nobre/Notebooks/RQAR_2025_book/data/RJ_Manual'
     
     # Loop por ano, estação e parâmetro    
     for _, row in df_stations.iterrows():

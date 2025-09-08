@@ -23,14 +23,6 @@ Cayssa Peres Marcondes de Araújo
 
 <br>
 
-```{image} media/images/mma_colorido.png
-:alt: MMA
-:width: 350px
-:align: left
-```
-
- 
-<br>
 
 <div style="text-align: left;font-size: 9pt;"">
     Ministério do Meio Ambiente e Mudança do Clima <br>

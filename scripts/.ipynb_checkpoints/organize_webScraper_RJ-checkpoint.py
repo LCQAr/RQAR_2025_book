@@ -11,6 +11,29 @@ Criado por Leonardo Hoinaski
 import os 
 import pandas as pd
 import numpy as np
+import glob
+
+def tratar_dados(df):
+    """
+    Recebe DataFrame cru, cria coluna datetime, converte e limpa valores.
+    Retorna DataFrame com índice datetime e coluna 'Valor' em float, valores < 0 viram NaN.
+
+    Parameters
+    ----------
+    df : TYPE
+        DF contendo dados brutos com colunas, sem coluna de datetime .
+
+    Returns
+    -------
+    df : TYPE
+        DataFrame tratado com indice de datetime e valores numéricos prontos para análise.
+
+    """
+    time_range = pd.date_range(df['DATETIME'].min(), df['DATETIME'].max(), freq='h').to_series(name='DATETIME')
+    df = pd.merge(time_range, df,how='left')
+    #df = df.set_index('datetime', drop=False)
+    df['DATETIME'] = pd.to_datetime(df['DATETIME']).copy()
+    return df
 
 station_parameters_dict = {
     'CH4 - Metano [ppm]': '7',
@@ -74,7 +97,7 @@ stations_dict = {
     45: "Mc - Pesagro",
     46: "Mc - Meteorológica Fazenda Severina",
     47: "Mc - Fazenda Airis",
-    48: "SJB - Mato Escuro 5º Distrito",
+    48: "SJB - Mato Escuro 5º D2istrito",
     49: "SJB - Açú 5º Distrito",
     50: "Cg - Val Palmas",
     51: "Cg - Macuco",
@@ -258,10 +281,10 @@ df_files_years.to_csv('/home/nobre/Notebooks/RQAR_2025_book/data/RJ_STATIONS_ANO
 import pathlib
 
 directory_path = '/home/nobre/Notebooks/RQAR_2025_book/data/RJ/' 
-directory_out = '/home/nobre/Notebooks/RQAR_2025_book/data/RJ_compilado/' 
+directory_out = '/home/nobre/Notebooks/RQAR_2025_book/data/MQAr_atualizado/' 
 
 mapping = {
-    "7":"011"
+    "7":"011",
     "9": "018",
     "11": "016",
     "18": "001",
@@ -281,6 +304,7 @@ mapping = {
     "2168": "027"
 }
 
+table_pols = pd.read_csv('/home/nobre/Notebooks/RQAR_2025_book/data/CODIGO_POLUENTES.csv')
 
 unique_df = df_files_years.drop_duplicates(subset=['ESTACAO', 'PARAMETRO'])
 unique_df["nosso_parametro"] = unique_df["PARAMETRO"].map(mapping)
@@ -301,20 +325,23 @@ for ii, row in unique_df.iterrows():
         combined_df = pd.concat(df_list, ignore_index=True)
     else:
         combined_df = df.copy()
-        
-    combined_df['datetime'] = pd.to_datetime(combined_df['datetime'],format='mixed')
-    combined_df['ANO'] = pd.to_datetime(combined_df['datetime']).dt.year
-    combined_df['MES'] = pd.to_datetime(combined_df['datetime']).dt.month
-    combined_df['DIA'] = pd.to_datetime(combined_df['datetime']).dt.day
-    combined_df['HORA'] = pd.to_datetime(combined_df['datetime']).dt.hour
+
+    combined_df.rename(columns={'datetime': 'DATETIME'}, inplace=True)
+    combined_df['DATETIME'] = pd.to_datetime(combined_df['DATETIME'],format='mixed')
+    combined_df['ANO'] = pd.to_datetime(combined_df['DATETIME']).dt.year
+    combined_df['MES'] = pd.to_datetime(combined_df['DATETIME']).dt.month
+    combined_df['DIA'] = pd.to_datetime(combined_df['DATETIME']).dt.day
+    combined_df['HORA'] = pd.to_datetime(combined_df['DATETIME']).dt.hour
     
     combined_df = combined_df.drop_duplicates()
-    combined_df = combined_df.sort_values(by='datetime')
+    combined_df = combined_df.sort_values(by='DATETIME')
+    combined_df = tratar_dados(combined_df)
     
     #combined_df
     #combined_df['value'].plot()
     if isinstance(row['nosso_parametro'], str):
-        combined_df.to_csv(directory_out+'RJ'+str(row['ESTACAO']).zfill(4)+str(row['nosso_parametro']).zfill(3)+'.csv', index=False)
+        name_file = table_pols.loc[table_pols['COD_POLUENTE'] == int(row['nosso_parametro']), 'NOME_PASTA'].values[0]
+        combined_df.to_csv(directory_out+name_file+'/RJ'+str(row['ESTACAO']).zfill(4)+'RA'+str(row['nosso_parametro']).zfill(3)+'.csv', index=False)
     else:
-        combined_df.to_csv(directory_out+'RJ'+str(row['ESTACAO']).zfill(4)+str(row['PARAMETRO']).zfill(3)+'.csv', index=False)
+        combined_df.to_csv(directory_out+'RJ'+str(row['ESTACAO']).zfill(4)+'MA'+str(row['PARAMETRO']).zfill(3)+'.csv', index=False)
     

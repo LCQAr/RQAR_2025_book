@@ -312,7 +312,8 @@ def table01():
     
     # Selecionando apenas Estado e Fonte e removendo redundâncias
     aqmData = aqmData.drop_duplicates(subset=['UF', 'FONTE'])
-
+    #aqmData[np.isnan(aqmData['FONTE'])] = 'Coleta interna'
+    aqmData['FONTE'] = aqmData['FONTE'].replace(np.nan, '', regex=True)
     # Agrupamento por estado quando tivermos mais de uma fonte de informação
     aqmData = aqmData.groupby('UF').agg({
         'FONTE': lambda x: ', '.join(x),
