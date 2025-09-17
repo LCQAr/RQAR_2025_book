@@ -117,6 +117,37 @@ def columns_renamer(aqmDisplay):
     aqmDisplay = aqmDisplay.rename(columns={k: v for k, v in columns_names.items() if k in aqmDisplay.columns})
     return aqmDisplay
 
+def columns_renamer_csv(aqmDisplay):
+    """
+    Rename columns of a dataframe based on a CSV mapping file.
+
+    Parameters
+    ----------
+    aqmDisplay : pd.DataFrame
+        Input dataframe with original column names.
+    csv_mapping_path : str
+        Path to the CSV file with two columns: "old" and "new".
+        Example:
+            old,new
+            avg_co,CO
+            avg_no2,NO2
+
+    Returns
+    -------
+    pd.DataFrame
+        Dataframe with renamed columns.
+    """
+    # Caminho para a pasta de dados
+    rootPath = os.path.dirname(os.getcwd())
+    
+    # Read mapping file
+    mapping_df = pd.read_csv(rootPath+'/data/dicionarios/CODIGO_POLUENTES_HTML.csv')
+    # Convert to dict
+    columns_names = dict(zip(mapping_df["NOME_PASTA"], mapping_df["NOME_TEXTO_HTML"]))
+    # Rename columns
+    aqmDisplay = aqmDisplay.rename(columns={k: v for k, v in columns_names.items() if k in aqmDisplay.columns})
+    return aqmDisplay
+
 def style_all_white(row: pd.Series) -> List:
     """
     Define o estilo das linhas da tabela:
@@ -624,6 +655,8 @@ def table07():
     df_with_separators[numeric_cols]  = df_with_separators[numeric_cols].apply(pd.to_numeric, errors='coerce')
     df_with_separators[numeric_cols] = df_with_separators[numeric_cols].fillna(999999).astype(int)
     df_with_separators= df_with_separators.replace(999999, '')
+    df_with_separators = columns_renamer(df_with_separators)
+    df_with_separators = columns_renamer_csv(df_with_separators)
     
     styled = (
         df_with_separators

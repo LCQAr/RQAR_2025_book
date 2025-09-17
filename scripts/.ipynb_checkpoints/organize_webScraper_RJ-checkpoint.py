@@ -196,7 +196,7 @@ df_stations= df_stations.drop_duplicates()
 df_parametros = pd.DataFrame(station_parameters_dict.items(), columns=["parameter_name", "parameter_id"])
 
 
-directory_path = '/home/nobre/Notebooks/RQAR_2025_book/data/RJ' 
+directory_path = '/home/nobre/Notebooks/RQAR_2025_book/data/DADOS_BRUTOS/RJ/RJ' 
 
 
 file_sizes = []
@@ -280,8 +280,8 @@ df_files_years.to_csv('/home/nobre/Notebooks/RQAR_2025_book/data/RJ_STATIONS_ANO
 
 import pathlib
 
-directory_path = '/home/nobre/Notebooks/RQAR_2025_book/data/RJ/' 
-directory_out = '/home/nobre/Notebooks/RQAR_2025_book/data/MQAr_atualizado/' 
+directory_path = '/home/nobre/Notebooks/RQAR_2025_book/data/DADOS_BRUTOS/RJ/RJ/' 
+directory_out = '/home/nobre/Notebooks/RQAR_2025_book/data/MQAr_teste/' 
 
 mapping = {
     "7":"011",
@@ -332,6 +332,8 @@ for ii, row in unique_df.iterrows():
     combined_df['MES'] = pd.to_datetime(combined_df['DATETIME']).dt.month
     combined_df['DIA'] = pd.to_datetime(combined_df['DATETIME']).dt.day
     combined_df['HORA'] = pd.to_datetime(combined_df['DATETIME']).dt.hour
+
+    combined_df.rename(columns={'value':'VALOR','qaqc':'QAQC_INTERNO'})
     
     combined_df = combined_df.drop_duplicates()
     combined_df = combined_df.sort_values(by='DATETIME')

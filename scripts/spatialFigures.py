@@ -21,6 +21,7 @@ import ipywidgets as widgets
 # Define update function
 import folium
 from folium import Element
+from matplotlib.colors import ListedColormap    
 
 # Dicionário para renomear as colunas
 columns_names = {
@@ -187,6 +188,7 @@ def spatial_rede_monitoramento(columnRef,columnsToltip,cmap):
     
     # Lendo o csv
     aqmData = pd.read_csv(rootPath+'/data/Monitoramento_QAr_BR.csv')
+    aqmData['CATEGORIA'] = aqmData['CATEGORIA'].str.replace(' ', '') 
     aqmData['ID_OEMA'] = aqmData['ID_OEMA'].str.replace(' ', '') 
     aqmData['POLUENTE'] = aqmData['POLUENTE'].str.upper()
     aqmData.drop(aqmData.columns[aqmData.columns.str.contains('unnamed', case=False)], axis=1, inplace=True)
@@ -196,11 +198,12 @@ def spatial_rede_monitoramento(columnRef,columnsToltip,cmap):
     aqmData = aqmData[aqmData['LATITUDE'].notna()]
     aqmData = aqmData[aqmData['LONGITUDE'].notna()]
     aqmData = aqmData[aqmData['POLUENTE'].notna()]
+
     
     # Agrupamento por estado quando tivermos mais de uma fonte de informação
     aqmData = aqmData.fillna('-')
     remaining_columns = aqmData.columns[(aqmData.columns != 'POLUENTE') & (aqmData.columns != 'ID_MMA_COMPLETO') & (aqmData.columns != 'COD_POLUENTE')].tolist()
-    #print(remaining_columns)
+    
     
     # Agrupamento por estado quando tivermos mais de uma fonte de informação
     aqmDataGrouped = aqmData.groupby(remaining_columns).agg({
@@ -218,7 +221,17 @@ def spatial_rede_monitoramento(columnRef,columnsToltip,cmap):
     #print(gdf.head)
     # Renomeando colunas com primeira letra em maiúsculo
     gdf = columns_renamer(gdf)
-    
+
+    #print(gdf.Categoria.unique().shape[0])
+    if (gdf.Categoria.unique().shape[0]==3) & (columnRef=='Categoria'):
+        # Original colormap
+        cmap = ListedColormap(["orange", "green"])
+        # Get the list of colors from the existing colormap
+        colors = cmap.colors
+        #cmap = cmap.append('gray')
+        colors.insert(0, 'gray')
+        cmap = ListedColormap(colors)
+        
     # Extrai o centroide dos locais onde existe monitoramento para centralizar o mapa
     center_geom = gdf.unary_union.centroid
     #print(center_geom)

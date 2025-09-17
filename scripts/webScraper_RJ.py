@@ -52,8 +52,43 @@ station_parameters_dict = {
     #'VV - Velocidade do Vento [m/s]': '100000'
 }
 
+parameters_dict_semiauto = {
+    # Semiautomáticas - Parâmetro
+    "CD-PI - Cádmio na PI [µg/m³]": 20050,
+    "CD-PTS - Cádmio na PTS [µg/m³]": 20031,
+    "CR-PI - Cromo na PI [µg/m³]": 20032,
+    "CR-PTS - Cromo na PTS [µg/m³]": 20033,
+    "CU-PI - Cobre na PI [µg/m³]": 20040,
+    "CU-PTS - Cobre na PTS [µg/m³]": 20041,
+    "FE-PI - Ferro na PI [µg/m³]": 20042,
+    "FE-PTS - Ferro na PTS [µg/m³]": 20043,
+    "MN-PI - Manganês na PI [µg/m³]": 20036,
+    "MN-PTS - Manganês na PTS [µg/m³]": 20037,
+    "NI-PI - Níquel na PI [µg/m³]": 20038,
+    "NI-PTS - Níquel na PTS [µg/m³]": 20039,
+    "PB-PI - Chumbo na PI [µg/m³]": 20034,
+    "PB-PTS - Chumbo na PTS [µg/m³]": 20035,
+    "V-PI - Vanádio na PI [µg/m³]": 20044,
+    "V-PTS - Vanádio na PTS [µg/m³]": 20045,
+    #"VZ-PI - Vazão na PI [m³/dia]": 20049,
+    #"VZ-PTS - Vazão na PTS [m³/dia]": 20048,
+    "ZN-PI - Zinco na PI [µg/m³]": 20046,
+    "ZN-PTS - Zinco na PTS [µg/m³]": 20047,
+    "CL-PTS - Cloretos na PTS [µg/m³]": 20053,
+    "NO3-PTS - Nitratos na PTS [µg/m³]": 20054,
+    "SO4-PTS - Sulfato na PTS [µg/m³]": 20055,
+    "CARB-ORG - Carbono Orgânico [µg/m³]": 20052,
+
+    # Qualidade do Ar
+    "MP10 - Partículas Inaláveis (<10µm) [µg/m³]": 18,
+    "MP2,5 - Partículas Inaláveis (<2,5µm) [µg/m³]": 20,
+    "PTS - Partículas Totais em Suspensão [µg/m³]": 1955,
+}
+
+
+
 # Transformando em dataframe
-df_parametros = pd.DataFrame(station_parameters_dict.items(), columns=["parameter_name", "parameter_id"])
+df_parametros = pd.DataFrame(parameters_dict_semiauto.items(), columns=["parameter_name", "parameter_id"])
 
 # ---------------------------------- Estações ----------------------------------
 stations_dict_automaticas = {
@@ -180,7 +215,7 @@ stations_dict_automaticas = {
     804: "Itg - Brisamar"
 }
 
-stations_dict = {
+stations_dict_semiauto = {
     # Região da Costa Verde
     201: "S - AR - Ilha Grande - UERJ",
     727: "S - Mt - Ilha Guaíba",
@@ -405,7 +440,7 @@ stations_dict = {
     246: "S - Ter - Vale Alpino",
 }
 
-df_stations = pd.DataFrame(list(stations_dict.items()), columns=["station_id", "station_name"])
+df_stations = pd.DataFrame(list(stations_dict_semiauto.items()), columns=["station_id", "station_name"])
 
 
 def webscraper_RJ(out_folder: str, station_id: str, parameter_id: str, start_date: str, end_date: str, year: int) -> pd.DataFrame:

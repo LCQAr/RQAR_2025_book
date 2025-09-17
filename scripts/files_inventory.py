@@ -11,6 +11,7 @@ import os
 import pandas as pd
 import scripts.timeSeriesFigures as tsf
 import scripts.get_elevation as getelev
+import scripts
 
 # Caminho para a pasta de dados
 rootPath = os.path.dirname(os.getcwd())
@@ -19,8 +20,8 @@ rootPath = os.path.dirname(os.getcwd())
 aqmData = pd.read_csv(rootPath+'/data/Monitoramento_QAr_BR.csv')
 
 col = 'ANOS_MONITORADOS'
-if col not in df.columns:
-    df[col] = ""   # string vazia como preenchimento
+if col not in aqmData.columns:
+    aqmData[col] = ""   # string vazia como preenchimento
     
 
 # Verifica se o arquivo com os dados existe
@@ -74,7 +75,7 @@ for index, row in aqmData.iterrows():
                 aqmData.loc[index,'INICIO'] = inicio
                 aqmData.loc[index,'FIM'] = final
                 fig = tsf.iterative_timeseries(df,row)
-                anos_monitorados = df.loc[df["VALOR"].notna(), "ANO"].unique()
+                anos_monitoradcomos = df.loc[df["VALOR"].notna(), "ANO"].unique()
                 anos_monitorados = sorted(anos_monitorados)
                 anos_monitorados = [int(x) for x in anos_monitorados]
                 aqmData.loc[index,'ANOS_MONITORADOS'] = ",".join(map(str, anos_monitorados))
@@ -98,3 +99,5 @@ aqmData, estacoes_negativas  = getelev.getElevSRTM(DirSRTM, aqmData)
 #csvEleva.to_csv(rootPath + '/data/Monitoramento_QAr_BR.csv', index=False)
 
 aqmData.to_csv(rootPath+'/data/Monitoramento_QAr_BR.csv',index=False)
+
+

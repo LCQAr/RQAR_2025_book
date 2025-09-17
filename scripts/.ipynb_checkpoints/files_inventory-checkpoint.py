@@ -17,10 +17,13 @@ rootPath = os.path.dirname(os.getcwd())
 
 # Lendo o csv
 aqmData = pd.read_csv(rootPath+'/data/Monitoramento_QAr_BR.csv')
-# aqmData['ANOS_MONITORADOS'] = ''
-aqmData.setdefault('ANOS_MONITORADOS', [""] * len(aqmData))
-# Verifica se o arquivo com os dados existe
 
+col = 'ANOS_MONITORADOS'
+if col not in aqmData.columns:
+    df[col] = ""   # string vazia como preenchimento
+    
+
+# Verifica se o arquivo com os dados existe
 temDados = []
 for index, row in aqmData.iterrows():
     if pd.isna(row.ID_MMA_COMPLETO) | pd.isna(row.POLUENTE): 

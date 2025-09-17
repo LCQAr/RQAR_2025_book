@@ -47,13 +47,13 @@ gdf.head()
 ------------------
 
 
-[31m---------------------------------------------------------------------------[39m
-[31mTypeError[39m                                 Traceback (most recent call last)
-[36mCell[39m[36m [39m[32mIn[1][39m[32m, line 7[39m
-[32m      5[39m file = [33m'[39m[33mMonitoramento_QAr_BR_latlon_2024.csv[39m[33m'[39m
-[32m      6[39m bufferSize = [32m1000[39m
-[32m----> [39m[32m7[39m gdf = [43mstLU[49m[43m.[49m[43mstationBuffers[49m[43m([49m[43mrootDir[49m[43m,[49m[43mfile[49m[43m,[49m[43mbufferSize[49m[43m)[49m
-[32m      8[39m gdf.head()
+[0;31m---------------------------------------------------------------------------[0m
+[0;31mTypeError[0m                                 Traceback (most recent call last)
+Cell [0;32mIn[1], line 7[0m
+[1;32m      5[0m file [38;5;241m=[39m [38;5;124m'[39m[38;5;124mMonitoramento_QAr_BR_latlon_2024.csv[39m[38;5;124m'[39m
+[1;32m      6[0m bufferSize [38;5;241m=[39m [38;5;241m1000[39m
+[0;32m----> 7[0m gdf [38;5;241m=[39m [43mstLU[49m[38;5;241;43m.[39;49m[43mstationBuffers[49m[43m([49m[43mrootDir[49m[43m,[49m[43mfile[49m[43m,[49m[43mbufferSize[49m[43m)[49m
+[1;32m      8[0m gdf[38;5;241m.[39mhead()
 
-[31mTypeError[39m: stationBuffers() takes 2 positional arguments but 3 were given
+[0;31mTypeError[0m: stationBuffers() takes 2 positional arguments but 3 were given
 

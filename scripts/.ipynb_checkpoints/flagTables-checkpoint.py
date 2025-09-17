@@ -117,6 +117,37 @@ def columns_renamer(aqmDisplay):
     aqmDisplay = aqmDisplay.rename(columns={k: v for k, v in columns_names.items() if k in aqmDisplay.columns})
     return aqmDisplay
 
+def columns_renamer_csv(aqmDisplay):
+    """
+    Rename columns of a dataframe based on a CSV mapping file.
+
+    Parameters
+    ----------
+    aqmDisplay : pd.DataFrame
+        Input dataframe with original column names.
+    csv_mapping_path : str
+        Path to the CSV file with two columns: "old" and "new".
+        Example:
+            old,new
+            avg_co,CO
+            avg_no2,NO2
+
+    Returns
+    -------
+    pd.DataFrame
+        Dataframe with renamed columns.
+    """
+    # Caminho para a pasta de dados
+    rootPath = os.path.dirname(os.getcwd())
+    
+    # Read mapping file
+    mapping_df = pd.read_csv(rootPath+'/data/dicionarios/CODIGO_POLUENTES_HTML.csv')
+    # Convert to dict
+    columns_names = dict(zip(mapping_df["NOME_PASTA"], mapping_df["NOME_TEXTO_HTML"]))
+    # Rename columns
+    aqmDisplay = aqmDisplay.rename(columns={k: v for k, v in columns_names.items() if k in aqmDisplay.columns})
+    return aqmDisplay
+
 def style_all_white(row: pd.Series) -> List:
     """
     Define o estilo das linhas da tabela:
@@ -296,7 +327,8 @@ def table_stylizer(style_sortBy='REGIAO'):
         .apply(style_all_white, axis=1)
         .hide(axis="index")  # hide the index column
         .set_table_styles([
-        {'selector': 'th', 'props': [('text-align', 'center')]}  # center header text
+        {'selector': 'th', 'props': [('text-align', 'center')]},  # center header text
+        {'selector': 'td > img', 'props': [('max-width', 'unset')]}
     ])
     )
     return styled
@@ -313,7 +345,7 @@ def table01():
     # Selecionando apenas Estado e Fonte e removendo redundâncias
     aqmData = aqmData.drop_duplicates(subset=['UF', 'FONTE'])
     #aqmData[np.isnan(aqmData['FONTE'])] = 'Coleta interna'
-    aqmData['FONTE'] = aqmData['FONTE'].replace(np.nan, '', regex=True)
+    aqmData['FONTE'] = aqmData['FONTE'].replace(np.nan, 'Coleta interna', regex=True)
     # Agrupamento por estado quando tivermos mais de uma fonte de informação
     aqmData = aqmData.groupby('UF').agg({
         'FONTE': lambda x: ', '.join(x),
@@ -371,7 +403,8 @@ def table01():
         .apply(style_all_white, axis=1)
         .hide(axis="index")  # ✅ hide the index column
         .set_table_styles([
-        {'selector': 'th', 'props': [('text-align', 'center')]}  # center header text
+        {'selector': 'th', 'props': [('text-align', 'center')]},  # center header text
+        {'selector': 'td > img', 'props': [('max-width', 'unset')]}
     ])
     )
 
@@ -472,7 +505,8 @@ def table05():
         .apply(style_all_white, axis=1)
         .hide(axis="index")  # ✅ hide the index column
         .set_table_styles([
-        {'selector': 'th', 'props': [('text-align', 'center')]}  # center header text
+        {'selector': 'th', 'props': [('text-align', 'center')]},  # center header text
+        {'selector': 'td > img', 'props': [('max-width', 'unset')]}
     ])
     )
 
@@ -547,7 +581,8 @@ def table06():
         .apply(style_all_white, axis=1)
         .hide(axis="index")  # ✅ hide the index column
         .set_table_styles([
-        {'selector': 'th', 'props': [('text-align', 'center')]}  # center header text
+        {'selector': 'th', 'props': [('text-align', 'center')]},  # center header text
+        {'selector': 'td > img', 'props': [('max-width', 'unset')]}
     ])
     )
 
@@ -620,6 +655,8 @@ def table07():
     df_with_separators[numeric_cols]  = df_with_separators[numeric_cols].apply(pd.to_numeric, errors='coerce')
     df_with_separators[numeric_cols] = df_with_separators[numeric_cols].fillna(999999).astype(int)
     df_with_separators= df_with_separators.replace(999999, '')
+    df_with_separators = columns_renamer(df_with_separators)
+    df_with_separators = columns_renamer_csv(df_with_separators)
     
     styled = (
         df_with_separators
@@ -630,7 +667,8 @@ def table07():
         {'selector': 'th', 'props': [
             ('text-align', 'center'),
             ('font-size', '7pt')  # change font size here
-        ]}  # center header text
+        ]},  # center header text
+            {'selector': 'td > img', 'props': [('max-width', 'unset')]}
     ])
     )
 
@@ -685,6 +723,113 @@ def tabela_iterativa(aqmData, searchPaneColumns):
                       },]  # Align text right
     opt.style = "font-size: 11px; white-space: normal;div.dt-buttons button {font-size: 10px !important; padding: 4px 6px;"  # Apply font size and enable wrapping
     opt.lengthMenu = [5, 10, 25]
+
+    custom_style = """
+    /* Removendo os estilos anteriores do campo de busca */
+    div.dt-search > input {
+      all: unset !important
+    }
+    
+    /* Reestilizando campo de busca */
+    div.dt-search > input {
+          /* background-color: #FFFFFF !important; */
+          border: 1px solid rgba(27, 31, 35, 0.15) !important;
+          border-radius: 6px !important;
+          padding: .5em .4em !important;
+          margin-left: 0.6em !important;
+          
+    }
+
+    /* Reestilizando itens de navegação entre páginas */
+    nav > .dt-paging-button {
+      background-color: transparent;
+      border: 1px solid rgba(27, 31, 35, 0.15) !important;
+      border-radius: 6px !important;
+        
+    }
+    nav > .current {
+      background-color: #F3F4F6 !important;
+      text-decoration: none !important;
+      transition-duration: 0.1s !important;
+    }
+
+    /* Removendo os estilos anteriores dos botões */
+    div.dt-buttons > .dt-button,
+    div.dt-buttons > .dt-button:hover,
+    div.dt-buttons > .dt-button:disabled,
+    div.dt-buttons > .dt-button:active,
+    div.dt-buttons > .dt-button:focus,
+    div.dt-buttons > .dt-button:before,
+    div.dt-buttons > .dt-button:hover:not(.disabled),
+    div.dt-buttons > .dt-button:focus:not(.disabled),
+    div.dt-buttons > .dt-button:active:not(.disabled),
+    div.dt-buttons > .dt-button:-webkit-details-marker {
+      all: unset !important;
+    } 
+
+    /* Reestilizando botões */
+    div.dt-buttons > .dt-button {
+      appearance: none !important;
+      background-color: #FAFBFC !important;
+      border: 1px solid rgba(27, 31, 35, 0.15) !important;
+      border-radius: 6px !important;
+      box-shadow: rgba(27, 31, 35, 0.04) 0 1px 0, rgba(255, 255, 255, 0.25) 0 1px 0 inset !important;
+      box-sizing: border-box !important;
+      color: #24292E !important;
+      cursor: pointer !important;
+      display: inline-block !important;
+      font-family: -apple-system, system-ui, "Segoe UI", Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji" !important;
+      font-size: 14px !important;
+      font-weight: 500 !important;
+      line-height: 20px !important;
+      list-style: none !important;
+      padding: 6px 16px !important;
+      position: relative !important;
+      transition: background-color 0.2s cubic-bezier(0.3, 0, 0.5, 1) !important;
+      user-select: none !important;
+      -webkit-user-select: none !important;
+      touch-action: manipulation !important;
+      vertical-align: middle !important;
+      white-space: nowrap !important;
+      word-wrap: break-word !important;
+      background: unset !important;
+    }
+    
+    div.dt-buttons > .dt-button:hover {
+      background-color: #F3F4F6 !important;
+      text-decoration: none !important;
+      transition-duration: 0.1s !important;
+    }
+    
+    div.dt-buttons > .dt-button:disabled {
+      background-color: #FAFBFC !important;
+      border-color: rgba(27, 31, 35, 0.15) !important;
+      color: #959DA5 !important;
+      cursor: default !important;
+    }
+    
+    div.dt-buttons > .dt-button:active {
+      background-color: #EDEFF2 !important;
+      box-shadow: rgba(225, 228, 232, 0.2) 0 1px 0 inset !important;
+      transition: none 0s !important;
+    }
+    
+    div.dt-buttons > .dt-button:focus {
+      outline: 1px transparent !important;
+    }
+    
+    div.dt-buttons > .dt-button:before {
+      display: none !important;
+    }
+    
+    div.dt-buttons > .dt-button:-webkit-details-marker {
+      display: none !important;
+    } 
+    """
+
+    display(HTML(f"<style>{custom_style}</style>" ""))
+
+    
     return show(aqmData, 
              #buttons=["copyHtml5", "csvHtml5", "excelHtml5","columnsToggle"],
              buttons=["copyHtml5", "csvHtml5"],
@@ -694,6 +839,7 @@ def tabela_iterativa(aqmData, searchPaneColumns):
              keys=True,
              escape=False,
              index=False,)
+             #style="table-layout:auto;width:auto;margin:auto;caption-side:bottom")
 
 
 def flagTable(columnsSelector):

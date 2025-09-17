@@ -45,7 +45,7 @@ def tratar_dados(df):
     df['VALOR'] = pd.to_numeric(df['VALOR'], errors='coerce').copy()
     # Transforma valores negativos em NaN
     df.loc[df['VALOR'] < 0, 'VALOR'] = np.nan
-    df['DATETIME'] = pd.to_datetime(df['DATETIME']).copy()
+    df['DATETIME'] = pd.to_datetime(df['DATETIME'], errors='coerce', infer_datetime_format=True)
     time_range = pd.date_range(df['DATETIME'].min(), df['DATETIME'].max(), freq='h').to_series(name='DATETIME')
     df = pd.merge(time_range, df,how='left')
     #df = df.set_index('datetime', drop=False)
