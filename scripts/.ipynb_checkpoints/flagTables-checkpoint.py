@@ -73,6 +73,7 @@ columns_names = {
     'Referencia':   'Referência',
     'REFERENCIA':   'Referência',
     'REFERÊNCIA':   'Referência',
+    'BASE_DADOS':   'Base de dados',
     
     
 }
@@ -395,6 +396,7 @@ def table01():
         
     df_with_separators = pd.DataFrame(rows)
     df_with_separators = df_with_separators.drop(columns=['Região'])
+    df_with_separators= df_with_separators.replace(0, '-')
     #df_with_separators = df_with_separators.style.apply(style_all_white, axis=1)
 
     styled = (
@@ -497,6 +499,7 @@ def table05():
         
     df_with_separators = pd.DataFrame(rows)
     df_with_separators = df_with_separators.drop(columns=['Região'])
+    df_with_separators= df_with_separators.replace(0, '-')
     #df_with_separators = df_with_separators.style.apply(style_all_white, axis=1)
     
     styled = (
@@ -573,6 +576,7 @@ def table06():
         
     df_with_separators = pd.DataFrame(rows)
     df_with_separators = df_with_separators.drop(columns=['Região'])
+    df_with_separators= df_with_separators.replace(0, '-')
     #df_with_separators = df_with_separators.style.apply(style_all_white, axis=1)
     
     styled = (
@@ -655,6 +659,7 @@ def table07():
     df_with_separators[numeric_cols]  = df_with_separators[numeric_cols].apply(pd.to_numeric, errors='coerce')
     df_with_separators[numeric_cols] = df_with_separators[numeric_cols].fillna(999999).astype(int)
     df_with_separators= df_with_separators.replace(999999, '')
+    df_with_separators= df_with_separators.replace(0, '-')
     df_with_separators = columns_renamer(df_with_separators)
     df_with_separators = columns_renamer_csv(df_with_separators)
     

@@ -65,11 +65,8 @@ parts:
     # 6	Comunicação e divulgação dos dados nos estados brasileiros - arquivo Markdown
     - file: chpt06/chpt06
     
-    # 7	Publicações científicas em periódicos sobre a poluição no Brasil - arquivo Markdown
+    # 7	Considerações finais - arquivo Markdown
     - file: chpt07/chpt07
-    
-    # 8	Considerações finais - arquivo Markdown
-    - file: chpt08/chpt08
     
     # Referências - arquivo Markdown
     #- file: references

@@ -284,7 +284,8 @@ directory_path = '/home/nobre/Notebooks/RQAR_2025_book/data/DADOS_BRUTOS/RJ/RJ/'
 directory_out = '/home/nobre/Notebooks/RQAR_2025_book/data/MQAr_teste/' 
 
 mapping = {
-    "7":"011",
+    "3": "007",
+    "7": "011",
     "9": "018",
     "11": "016",
     "18": "001",
@@ -304,7 +305,29 @@ mapping = {
     "2168": "027"
 }
 
-table_pols = pd.read_csv('/home/nobre/Notebooks/RQAR_2025_book/data/CODIGO_POLUENTES.csv')
+units = {
+    "007": "ppm",
+    "011": "ppm",
+    "018": "µg/m³",
+    "016": "ppm",
+    "001": "µg/m³",
+    "002": "µg/m³",
+    "003": "µg/m³",
+    "010": "µg/m³",
+    "013": "µg/m³",
+    "025": "µg/m³",
+    "022": "µg/m³",
+    "023": "µg/m³",
+    "014": "µg/m³",
+    "004": "µg/m³",
+    "008": "µg/m³",
+    "017": "µg/m³",
+    "005": "µg/m³",
+    "026": "ppm",
+    "027": "µg/m³"
+}
+
+table_pols = pd.read_csv('/home/nobre/Notebooks/RQAR_2025_book/data/dicionarios/CODIGO_POLUENTES.csv')
 
 unique_df = df_files_years.drop_duplicates(subset=['ESTACAO', 'PARAMETRO'])
 unique_df["nosso_parametro"] = unique_df["PARAMETRO"].map(mapping)
@@ -332,8 +355,9 @@ for ii, row in unique_df.iterrows():
     combined_df['MES'] = pd.to_datetime(combined_df['DATETIME']).dt.month
     combined_df['DIA'] = pd.to_datetime(combined_df['DATETIME']).dt.day
     combined_df['HORA'] = pd.to_datetime(combined_df['DATETIME']).dt.hour
-
-    combined_df.rename(columns={'value':'VALOR','qaqc':'QAQC_INTERNO'})
+    #combined_df['UNIDADE'] = units[row['nosso_parametro']]
+    print(row['nosso_parametro'])
+    combined_df = combined_df.rename(columns={'value':'VALOR','qaqc':'QAQC_INTERNO'})
     
     combined_df = combined_df.drop_duplicates()
     combined_df = combined_df.sort_values(by='DATETIME')

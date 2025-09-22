@@ -41,13 +41,16 @@ stations_path = root_path + '/data/Monitoramento_QAr_BR.csv' # constantemente at
 gdf = (gpd
        .read_parquet(path=flow_path))
 
-gdf = gdf.astype({'osm_id': int,
-                  'surface': str}) 
+gdf = gdf.astype({'osm_id': int}) 
 ######'average_daily_vehicle_count': float,
 
 # Removendo a coluna de datetime do índice
 gdf.reset_index(drop=False,
                 inplace=True)
+
+
+
+
 
 ## FIXME - Criando coluna temporária de average_daily_vehicle_count (ADT)
 ############################################################################################
@@ -62,6 +65,11 @@ gdf['average_daily_vehicle_count'] = (
            )[:len(gdf)]
 )
 ############################################################################################
+
+
+
+
+
 
 
 # %% ====================== CRIANDO MODELO DE VIAS ====================================
@@ -906,17 +914,16 @@ buffered_subset_so2 = create_buffered_gdf(subset_so2,
 
 
 # =============================== FORMATAÇÃO DOS OUTPUTS =============================
-# 1) estações_e_indústrias ----------------------------------------------------------
-cols = ['ID_OEMA', 'geometry', 'Razão Social', 'distance_to_industry']
-stations_and_industries = pd.concat([buffered_subset_co[cols],
-                               buffered_subset_no2[cols],
-                               buffered_subset_o3[cols],
-                               buffered_subset_pm[cols],
-                               buffered_subset_so2[cols]])
+# 1) estacoes_completa
+# Unindo poluentes em um gdf final completo
+buffered_stations = pd.concat([buffered_subset_co,
+                               buffered_subset_no2,
+                               buffered_subset_o3,
+                               buffered_subset_pm,
+                               buffered_subset_so2])
 
 
-
-# 2) estações_com_buffer ------------------------------------------------------------
+# 2) rep_espacial
 # Removendo colunas auxiliares
 def drop_aux_cols(subset):
     return subset.drop(columns= (list(subset
@@ -935,31 +942,17 @@ def drop_aux_cols(subset):
                                   'Razão Social', 'industry_geom']
                                  )
                        )
-
-# Aplicando função de remoção de colunas
-buffered_subset_co = drop_aux_cols(buffered_subset_co)
-buffered_subset_no2 = drop_aux_cols(buffered_subset_no2)
-buffered_subset_o3 = drop_aux_cols(buffered_subset_o3)
-buffered_subset_pm = drop_aux_cols(buffered_subset_pm)
-buffered_subset_so2 = drop_aux_cols(buffered_subset_so2)
-
-# Unindo poluentes em um gdf final completo
-buffered_stations = pd.concat([buffered_subset_co,
-                               buffered_subset_no2,
-                               buffered_subset_o3,
-                               buffered_subset_pm,
-                               buffered_subset_so2])
-
+# Aplicando função
+filtered_stations = drop_aux_cols(buffered_stations) 
 
 # ======================== SALVANDO OUTPUTS =========================================
 # Salvando o GeoDataFrame com a indústria mais próxima de cada estação
-"""['ID_OEMA', 'geometry', 'Razão Social', 'distance_to_industry','industry_geom']"""
-stations_and_industries.to_parquet(outputs_path + '/stations_and_industries.parquet')
+buffered_stations.to_parquet(outputs_path + '/estacoes_completa.parquet')
 
 
 # Salvando o GeoDataFrame de input com as estações, sua classificação de 
 # representatividade espacial e o tamanho do buffer
 """Todas as colunas da planilha de estações + ['REP_ESPACIAL','REP_ESPACIAL_NAME']"""
-buffered_stations.to_parquet(outputs_path + '/rep_espacial.parquet')
+filtered_stations.to_parquet(outputs_path + '/rep_espacial.parquet')
 
 

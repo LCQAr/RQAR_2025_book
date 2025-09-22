@@ -4,17 +4,25 @@ from __future__ import annotations
 import os
 from pathlib import Path
 from html import escape
-
+import geopandas as gpd
+import os
 import numpy as np
 import pandas as pd
 pd.set_option('future.no_silent_downcasting', True)
 import geopandas as gpd
 import folium
 from folium.plugins import MiniMap, Fullscreen
-
+import warnings
 # Dependências do seu repositório
 import scripts.stationsLandUse as stl  # stationBuffers, cutMapbiomas, stationUnionByUF
+from pathlib import Path
+import logging
 
+# Defina a pasta de saída
+rootPath = Path(os.path.dirname(os.getcwd()))
+OUTPUT_DIR = Path(rootPath / "data/outputs")
+OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+logging.getLogger("pyogrio._io").setLevel(logging.ERROR)
 # =========================
 # Configs e constantes
 # =========================
@@ -128,7 +136,7 @@ def _center_from_bounds(gdf_ll: gpd.GeoDataFrame) -> tuple[float, float]:
     except Exception:
         return -14.2, -52.9
 
-
+'''
 # =========================
 # Função: Figura 8 (1 km)
 # =========================
@@ -156,6 +164,11 @@ def build_map_1k(
     df1k = aggregate_land_use(stats_1k, LAND_USE_MAP)
     # FIX: usar o helper correto (sem underscore no nome)
     df1k["GRUPO_PRED_1k"] = df1k.apply(lambda r: predominant_group(r, GROUPS), axis=1)
+    # Salva tabela com resultados de 1 km
+    out1k = df1k.copy()
+    out1k.insert(0, "ID", gdf_1k.index)  # garante um ID
+    out1k.to_csv(OUTPUT_DIR / "uso_solo_1km.csv", index=False, encoding="utf-8")
+
 
     # Junta atributos (só grupos + predominância) e faz centróides corretos
     cols_keep = [c for c in df1k.columns if (c in GROUPS) or (c == "GRUPO_PRED_1k")]
@@ -235,8 +248,8 @@ def build_map_1k(
     m.get_root().html.add_child(folium.Element(_folium_categorical_legend("Predominância (1 km) — MapBiomas/2023", GROUP_COLORS)))
     folium.LayerControl(collapsed=False).add_to(m)
     return m
-
-
+'''
+'''
 # =========================
 # Função: Figura 9 (5 km)
 # =========================
@@ -280,6 +293,9 @@ def build_map_5k(
     for g in GROUPS:
         df5k[f"{g}_perc"] = (100 * df5k[g] / sums).round(1)
     df5k["GRUPO_PRED_5k"] = df5k[GROUPS].idxmax(axis=1)
+    out5k = df5k.copy()
+    out5k.insert(0, "ID", gdf_5k.index)
+    out5k.to_csv(OUTPUT_DIR / "uso_solo_5km.csv", index=False, encoding="utf-8")
     df5k.loc[sums.isna(), "GRUPO_PRED_5k"] = np.nan
 
     # Pontos (usa centróides corretos do 1k; alinhamento por índice)
@@ -390,7 +406,7 @@ def build_map_5k(
     m.get_root().html.add_child(folium.Element(_folium_categorical_legend("Predominância (5 km) — MapBiomas/2023", GROUP_COLORS)))
     folium.LayerControl(collapsed=False).add_to(m)
     return m
-
+'''
 # =========================
 # Função: Mapa com buffer variável por estação (usa REP_ESPACIAL em metros)
 # =========================
@@ -471,6 +487,11 @@ def build_map_varbuf(
 
     if "buffer" not in gdf_var.columns:
         gdf_var["buffer"] = gdf_pts["REP_ESPACIAL"].astype(int).reindex(gdf_var.index)
+# Salvar buffers variáveis como GeoPackage
+    out_buf = OUTPUT_DIR / "buffers_var.gpkg"
+
+    warnings.filterwarnings("ignore", category=UserWarning)
+    gdf_var.to_file(out_buf, driver="GPKG")
 
     # --- Cálculos de uso do solo via MapBiomas dentro dos buffers variáveis
     stats_var = stl.cutMapbiomas(str(mapbiomasFolder), gdf_var, year, "", pixelSize)
@@ -481,6 +502,11 @@ def build_map_varbuf(
     for g in GROUPS:
         dfv[f"{g}_perc"] = (100 * dfv[g] / sums).round(1)
     dfv["GRUPO_PRED_VAR"] = dfv[GROUPS].idxmax(axis=1)
+    # Salva tabela com resultados do buffer variável
+    outVar = dfv.copy()
+    outVar.insert(0, "ID", gdf_var.index)
+    outVar.to_csv(OUTPUT_DIR / "uso_solo_varbuf.csv", index=False, encoding="utf-8")
+
     dfv.loc[sums.isna(), "GRUPO_PRED_VAR"] = np.nan
 
     # Junta atributos às coordenadas (centróides corretos para posicionar os marcadores)
@@ -608,9 +634,9 @@ def build_map_varbuf(
 # =========================
 if __name__ == "__main__":
     # Teste rápido: gera mapas e salva HTMLs locais (opcional)
-    m1 = build_map_1k()
+#   m1 = build_map_1k()
 #    m1.save("figura8_interativo.html")
-    m2 = build_map_5k()
+#    m2 = build_map_5k()
 #    m2.save("figura9_interativo.html")
     m_var = build_map_varbuf()  # usa REP_ESPACIAL do CSV; se não existir, cria sintética 100–5000 m
 #    m_var.save("figura_buffer_variavel.html")

@@ -1,5 +1,4 @@
-
-lista_estados = ['MG','ES','SP']##!/usr/bin/env python3
+##!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
 Created on Thu Aug 14 13:48:06 2025
@@ -15,10 +14,77 @@ from collections import defaultdict
 from datetime import datetime, timedelta
 import re
 import numpy as np
+from pathlib import Path
 
 os.chdir('/home/nobre/Notebooks/RQAR_2025_book/')
 
 #%% Função para São Paulo
+
+def pol_to_station(df_ids):
+
+    base_path = Path('/home/nobre/Notebooks/RQAR_2025_book/data/MQAr_teste/')
+
+    id_to_poluentes = {}
+    
+    for poluente_dir in base_path.iterdir():
+        if poluente_dir.is_dir():
+            poluente = poluente_dir.name
+    
+            arquivos = [arq.stem for arq in poluente_dir.glob("*")]
+    
+            for id_mma in df_ids["ID_MMA"]:
+                if any(str(arq).startswith(id_mma) for arq in arquivos):
+                    id_to_poluentes.setdefault(id_mma, []).append(poluente)
+    
+    df_ids["POLUENTE"] = df_ids["ID_MMA"].map(id_to_poluentes).fillna("").apply(lambda x: ",".join(x) if isinstance(x, list) else "")
+    
+    return(df_ids)
+
+def create_df_estacao(uf,df_ids):
+
+    print(uf)
+    
+    df_ufs = pd.read_csv('/home/nobre/Notebooks/RQAR_2025_book/data/dicionarios/IBGE_UFS_CODIGOS.csv')
+    
+    cod_uf =  df_ufs.loc[df_ufs['UF'] == uf, 'CODIGOS'].values[0]
+
+    print(cod_uf)
+    
+    if os.path.exists('/home/nobre/Notebooks/RQAR_2025_book/data/DADOS_ESTACOES/'+uf+'_estacoes.csv'):
+
+        df_estacao = pd.read_csv('/home/nobre/Notebooks/RQAR_2025_book/data/DADOS_ESTACOES/'+uf+'_estacoes.csv')
+
+        df_estacao['ID_MMA'] = df_estacao['ID_OEMA'].map(df_ids.set_index('ID_OEMA')['ID_MMA'])
+    
+    else:
+
+        colunas = ['ID_OEMA', 'UF', 'ID_MMA', 'COD_UF_IBGE', 'CIDADE', 'CD_MUN',
+                   'PROPRIETARIO', 'PROP_ENTIDADE', 'OPERADOR', 'OP_ENTIDADE', 'LATITUDE',
+                   'LONGITUDE', 'MOBILIDADE', 'REALOCACAO', 'MARCA', 'CATEGORIA',
+                   'FUNCIONAMENTO', 'METODO', 'FINALIDADE', 'REP_ESPACIAL', 'POLUENTE',
+                   'INICIO', 'STATUS', 'FIM', 'CALIBRACAO', 'OBS_CALIBRACAO', 'MONITORAR',
+                   'FONTE', 'OBS_GERAIS']
+        
+        df_estacao = pd.DataFrame(columns=colunas)
+
+    df_ids = pol_to_station(df_ids)
+
+    df_estacao = df_estacao.reindex(df_ids.index)
+
+    df_estacao[["ID_MMA", "ID_OEMA", "POLUENTE"]] = df_ids[["ID_MMA", "ID_OEMA", "POLUENTE"]].values
+
+    df_estacao.loc[:, "COD_UF_IBGE"] = cod_uf
+    df_estacao.loc[:, "UF"] = uf
+    
+    df_estacao.to_csv('/home/nobre/Notebooks/RQAR_2025_book/data/DADOS_ESTACOES/'+uf+'_estacoes_teste.csv', index=False)
+    
+def ug_to_ppm(df):
+
+    df.loc[df["UNIDADE"] != "ppm", "VALOR"] *= 868.26/10**6
+
+    df['UNIDADE'] = "ppm"
+
+    return df
 
 def ajustar_data_hora(d, h):
     if h == '24:00':
@@ -136,14 +202,150 @@ def rectify_SP(path):
                     lista.append(pol)
                     
                     print(pol)
-            
+
+    df_ids = estacoes_SP
+    
+    return df_ids
+    
+    
 #%% Função para Rio de Janeiro
 
+def rectify_RJ(path):
 
+    stations_dict_automaticas = {
+        12: "RJ - Largo do Bodegão",
+        18: "BR - São Bernardo",
+        19: "NI - Monteiro Lobato",
+        20: "RJ - Campo dos Afonsos",
+        21: "RJ - Taquara",
+        22: "RJ - Centro",
+        23: "RJ - Engenhão",
+        24: "RJ - Gericinó",
+        25: "RJ - Lagoa",
+        26: "RJ - Lourenço Jorge",
+        27: "SG - UERJ",
+        28: "NI - Meteorológica Cerâmica",
+        29: "RJ - Manguinhos",
+        30: "DC - Campos Elíseos",
+        31: "DC - Jardim Primavera",
+        32: "DC - São Bento",
+        33: "DC - Vila São Luiz",
+        34: "DC - Pilar",
+        35: "DC - Meteorológica Jardim Piratininga",
+        36: "RJ - Ilha de Paquetá",
+        37: "RJ - Ilha do Governador",
+        38: "Itb - Porto das Caixas",
+        39: "Itb - Sambaetiba",
+        40: "Itb - Areal",
+        41: "Itb - Apa Guapimirim",
+        42: "Itb - Fazenda Macacu",
+        43: "Mc - Cabiúnas",
+        44: "Mc - Fazenda Severina",
+        45: "Mc - Pesagro",
+        46: "Mc - Meteorológica Fazenda Severina",
+        47: "Mc - Fazenda Airis",
+        48: "SJB - Mato Escuro 5º Distrito",
+        49: "SJB - Açú 5º Distrito",
+        50: "Cg - Val Palmas",
+        51: "Cg - Macuco",
+        52: "Cg - Meteorológica Euclidelândia 2",
+        53: "Cg - Meteorológica Euclidelândia 1",
+        54: "Cg - Euclidelândia",
+        55: "Jp - Engenheiro Pedreira",
+        56: "Sp - Meteorológica Jardim Maracanã",
+        57: "NI - Jardim Guandu",
+        58: "Sp - Piranema",
+        59: "RJ - Meteorológica UTE Santa Cruz",
+        60: "Itg - Monte Serrat",
+        61: "RJ - Adalgisa Nery",
+        62: "RJ - Meteorológica Santa Cruz",
+        63: "Itg - Coroa Grande",
+        64: "Mt - Itacuruçá",  # 2013
+        65: "Itg - Meteorológica Ilha Da Madeira",
+        66: "Itg - Ilha Da Madeira",
+        67: "Mt - Ibicuí",  # 2013
+        68: "Mt - Praia Do Saco",  # 2013
+        69: "VR - Belmonte",
+        70: "VR - Retiro",
+        71: "VR - Santa Cecília",
+        72: "VR - Meteorológica Ilha das Águas Cruas",
+        73: "BM - Boa Sorte",
+        74: "BM - Sesi",
+        75: "BM - Bocaininha",
+        76: "BM - Roberto Silveira",
+        77: "BM - Vista Alegre",
+        78: "PR - Porto Real",
+        79: "Qt - Bom Retiro",
+        80: "Rs - Casa da Lua",
+        81: "Rs - Cidade Alegria",
+        82: "Itt - Campo Alegre",
+        83: "Itt - Meteorológica Itatiaia",
+        85: "Mt - Sahy",  # 2013
+        86: "SJB - Fazenda Saco Dantas",
+        142: "Mc - Imboassica",
+        215: "SJM - Coelho da Rocha",
+        216: "SC - João XXIII (Caminhao)",
+        217: "SC - 27ºBPM (Caminhão)",
+        218: "RJ - Van (Sumaré-SBT)",
+        219: "RJ - Van (Parque Parnaso - Guapimirim)",
+        220: "RJ - Van (Parque do Mendanha)",
+        221: "RJ - Van (Parque da Serra da Tiririca)",
+        222: "RJ - Urca",
+        223: "RJ - São Conrado",
+        224: "RJ - Maracanã",
+        225: "RJ - Leblon",
+        226: "RJ - Lab. INEA",
+        227: "RJ - Jacarepaguá",
+        228: "RJ - Gamboa",
+        229: "Nit - Caio Martins",
+        252: "Monitor - CO Plaza Shopping",
+        281: "E. Móvel - Linha Amarela LAMSA - RJ",
+        282: "E. Móvel - Lagoa - RJ.",
+        291: "E. Móvel - Velha-Cidade Meninos",
+        292: "E. Móvel - Resende",
+        293: "E. Móvel - Parmalat Macae-RJ",
+        294: "E. Móvel - Macaé - Norte Fuminense",
+        295: "E. Móvel - Jardim Meriti - Vilar dos Teles - RJ OF",
+        296: "E. Móvel - Itaguaí EMBRAPA",
+        297: "E. Móvel - Engenheiro Pedreira",
+        298: "E. Móvel - Belford Roxo",
+        299: "E. Móvel - Barra Mansa",
+        300: "E. Móvel - Velha - Petrópolis",
+        609: "Itaborai - Ciep 130 - Meteorologia",
+        610: "Itaborai - Vor Infraero - Meteorologia",
+        611: "Radar Vor Da Infraero - Cetrel-Automatica",
+        613: "Estação Meteorológica - Ute Campos",
+        608: "Itb - Alto do Jacú",
+        637: "VR - Nossa Sra. das Graças (Van)",
+        730: "E. M. Francisco C. de Alvarenga",
+        733: "DC - Bacia de Resfriamento",
+        735: "DC - Campos Elíseos (Antiga)",
+        737: "DC - Pier das Chatas",
+        740: "Mc - Macaé Merchant",
+        742: "RJ - Aeroporto de Campo dos Afonsos",
+        743: "Mc - Aeroporto de Macaé",
+        744: "RJ - Aeroporto do Galeão",
+        745: "SC - Base Aérea de Santa Cruz",
+        746: "SG - GETEC",
+        747: "Itg - Estação Gaia",
+        748: "Nit - Charitas",
+        749: "Nit - Itaipu",
+        750: "Mt - Terminal da Ilha Guaíba",  # 2013
+        788: "Qmd - Meteorológica Jardim Riachão",
+        789: "Pet - Retiro",
+        804: "Itg - Brisamar"
+    }
+    
+    df_ids = pd.DataFrame(list(stations_dict_automaticas.items()), columns=["ID_MMA", "ID_OEMA"])
+    
+    df_ids["ID_MMA"] = "RJ" + df_ids["ID_MMA"].astype(str).str.zfill(4)
+    
+    return df_ids
+    
 #%% Função para Espírito Santo
 
 codigo_estacao_ES = {'Carapina': 'ES0001', 
-                     'Cariacica': 'ES0002',
+                     'Cariacica': 'ES0002', 
                      'Vila Capixaba': 'ES0002',
                      'Enseada do Suá': 'ES0003', 
                      'Jardim Camburi': 'ES0004', 
@@ -158,10 +360,10 @@ codigo_estacao_ES = {'Carapina': 'ES0001',
                      'Meaípe': 'ES0013', 
                      'Guanabara': 'ES0014', 
                      'Anchieta Centro': 'ES0015', 
-                     'Cariacica Vila Capixaba': 'ES0016', 
-                     'Linhares2': 'ES0017', 
-                     'Linhares1': 'ES0018', 
-                     'Ponta Formosa': 'ES0019'}
+                     'Cariacica Vila Capixaba': 'ES0002', 
+                     'Linhares2': 'ES0016', 
+                     'Linhares1': 'ES0017', 
+                     'Ponta Formosa': 'ES0018'}
 
 def rectify_ES(path):
     
@@ -352,25 +554,25 @@ def rectify_ES(path):
         codigo_estacao_ES[nome] = codigo
         
     codigo_estacao_ES = {'Carapina': 'ES0001', 
-                         'Cariacica': 'ES0002', 
-                         'Vila Capixaba': 'ES0002', 
-                         'Enseada do Suá': 'ES0003', 
-                         'Jardim Camburi': 'ES0004', 
-                         'Laranjeiras': 'ES0005', 
-                         'Vila Velha Centro': 'ES0006', 
-                         'Vila Velha IBES': 'ES0007', 
-                         'Vitória Centro': 'ES0008', 
-                         'Cidade Continental': 'ES0009', 
-                         'Ubu': 'ES0010', 
-                         'Mãe Bá': 'ES0011', 
-                         'Belo Horizonte': 'ES0012', 
-                         'Meaípe': 'ES0013', 
-                         'Guanabara': 'ES0014', 
-                         'Anchieta Centro': 'ES0015', 
-                         'Cariacica Vila Capixaba': 'ES0016', 
-                         'Linhares2': 'ES0017', 
-                         'Linhares1': 'ES0018', 
-                         'Ponta Formosa': 'ES0019'}
+                     'Cariacica': 'ES0002', 
+                     'Vila Capixaba': 'ES0002',
+                     'Enseada do Suá': 'ES0003', 
+                     'Jardim Camburi': 'ES0004', 
+                     'Laranjeiras': 'ES0005', 
+                     'Vila Velha Centro': 'ES0006', 
+                     'Vila Velha IBES': 'ES0007', 
+                     'Vitória Centro': 'ES0008', 
+                     'Cidade Continental': 'ES0009', 
+                     'Ubu': 'ES0010', 
+                     'Mãe Bá': 'ES0011', 
+                     'Belo Horizonte': 'ES0012', 
+                     'Meaípe': 'ES0013', 
+                     'Guanabara': 'ES0014', 
+                     'Anchieta Centro': 'ES0015', 
+                     'Cariacica Vila Capixaba': 'ES0002', 
+                     'Linhares2': 'ES0016', 
+                     'Linhares1': 'ES0017', 
+                     'Ponta Formosa': 'ES0018'}
     
     for chave in dict_stations.keys():
         
@@ -379,6 +581,9 @@ def rectify_ES(path):
         station = chave.split('_')[0]
         pol = chave.split('_')[1]
 
+        if pol == 'CO':
+            df_pol_stat = ug_to_ppm(df_pol_stat)
+        
         cod_poluente = int(tabela_pols.loc[tabela_pols['POLUENTE'] == pol, 'COD_POLUENTE'].values[0])
        
         cod_poluente = f"{cod_poluente:03d}"
@@ -392,8 +597,6 @@ def rectify_ES(path):
         nome_pasta = tabela_pols.loc[tabela_pols['COD_POLUENTE'] == int(cod_poluente), 'NOME_PASTA'].values[0]
         
         df_pol_stat.to_csv('/home/nobre/Notebooks/RQAR_2025_book/data/MQAr_teste/'+nome_pasta+'/'+cod_estacao+i_ou_r+s_ou_a+cod_poluente+'.csv', index=False)
-            
-def rectify_ES_norte():
 
     path = '/home/nobre/Notebooks/RQAR_2025_book/data/DADOS_BRUTOS/ES/coletados_norte/Linhares/'
     
@@ -492,6 +695,9 @@ def rectify_ES_norte():
         station = chave.split('_')[0]
         pol = chave.split('_')[1]
 
+        if pol == 'CO':
+            df_pol_stat = ug_to_ppm(df_pol_stat)
+        
         cod_poluente = int(tabela_pols.loc[tabela_pols['POLUENTE'] == pol, 'COD_POLUENTE'].values[0])
        
         cod_poluente = f"{cod_poluente:03d}"
@@ -505,7 +711,24 @@ def rectify_ES_norte():
         nome_pasta = tabela_pols.loc[tabela_pols['COD_POLUENTE'] == int(cod_poluente), 'NOME_PASTA'].values[0]
         
         df_pol_stat.to_csv('/home/nobre/Notebooks/RQAR_2025_book/data/MQAr_teste/'+nome_pasta+'/'+cod_estacao+i_ou_r+s_ou_a+cod_poluente+'.csv', index=False)
-            
+
+    df_ids = pd.DataFrame({
+        'ID_OEMA': ['EMQAR - RGV1 - Laranjeiras','EMQAR - RGV2 - Carapina',
+                    'EMQAR - RGV3 - Jardim Camburi','EMQAR - RGV4 - Enseada do Suá',
+                    'EMQAR - RGV5 - Vitória Centro','EMQAR - RGV6 - Ibes',
+                    'EMQAR - RGV7 - Vila Velha Centro','EMQAR - RGV8 - Vila Capixaba',
+                    'EMQAR - RGV9 - Cidade Continental','EMQAR - RGV10 - Praia do Canto',
+                    'EMQAR SUL 01 - Meaípe','EMQAR SUL 02 - Ubu','EMQAR SUL 03 - Guanabara',
+                    'EMQAR SUL 04 - Belo Horizonte ','EMQAR SUL 05 - Mãe-Bá ',
+                    'EMQAR SUL 06 - Centro','EMQAR - Norte 01 - Cacimbas',
+                    'EMQAR - Norte 02 - Cacimbas','EMAQR - UTE Viana'],
+        'ID_MMA' : ['ES0005','ES0001','ES0004','ES0003','ES0008','ES0007',
+                    'ES0006','ES0002','ES0009','ES0019','ES0013','ES0010','ES0014',
+                    'ES0012','ES0011','ES0015','ES0018','ES0017','ES0019']})
+    
+    return df_ids
+    
+
 #%% Função para Minas Gerais
 def rectify_MG(path):
     
@@ -775,28 +998,9 @@ def rectify_MG(path):
         df_pol_stat.to_csv('/home/nobre/Notebooks/RQAR_2025_book/data/MQAr_teste/'+nome_pasta+'/'+id_mma_completo+'.csv', index=False)
         
 #%%
-    
-tabela_ids = pd.read_csv('/home/nobre/Notebooks/RQAR_2025_book/data/Monitoramento_QAr_BR.csv')
-tabela_pols = pd.read_csv('/home/nobre/Notebooks/RQAR_2025_book/data/dicionarios/CODIGO_POLUENTES.csv')
-
+ 
 #%%
-'''
-lista_estados = ['MG','ES','SP']
 
-funcoes = {
-    'MG': rectify_MG,
-    'ES': rectify_ES,
-    'SP': rectify_SP
-}
-
-
-for estado in lista_estados:
-    
-    path = os.getcwd()+'/data/DADOS_BRUTOS/' + estado + '/'
-
-    funcoes[estado](path)
-'''
-    
 
 #%%
 codigos_SC = {
@@ -847,7 +1051,7 @@ def rectify_SC(path):
         
         estacao = estacao.set_index("DATETIME")
     
-        for pol in estacao.columns[1:]:
+        for pol in estacao.columns[:]:
             
             estacao_pol = estacao.copy()
 
@@ -1013,11 +1217,16 @@ def rectify_SC(path):
         
             estacao.to_csv('/home/nobre/Notebooks/RQAR_2025_book/data/MQAr_teste/'+nome_pasta+'/'
                                + codigos_SC[nome_estacao] +'RA'+ str(cod_pol).zfill(3) + '.csv',index=False)
-
-            
+    
+    df_ids = pd.DataFrame({
+        'ID_OEMA': ['Vila Moema', 'Capivari', 'São Bernardo', 'UFSC'],
+        'ID_MMA' : ['SC0001','SC0002','SC0003','SC0004']})
+    
+    return df_ids
+    
 #%% Função para Rio Grande do Sul
 
-estacaoes_RS = {
+estacoes_RS = {
     '2014-Triunfo DEPREC':'RS0009',
     '2014-Esteio VE':'RS0006',
     '2014-Canoas VCOMAR':'RS0004',
@@ -1092,7 +1301,7 @@ def rectify_RS(path):
                 
                 poluentes = df.columns
                 
-                cod_estacao = estacaoes_RS[aba]
+                cod_estacao = estacoes_RS[aba]
                 
                 for pol in poluentes[1:]:
                     
@@ -1150,26 +1359,25 @@ def rectify_RS(path):
         nome_pasta = tabela_pols.loc[tabela_pols['COD_POLUENTE'] == int(chave[-3:]), 'NOME_PASTA'].values[0]
         
         df_est_pol.to_csv('/home/nobre/Notebooks/RQAR_2025_book/data/MQAr_teste/'+nome_pasta+'/'+chave+'.csv',index=False)
-            
+
+    df_ids = pd.DataFrame({
+    'ID_MMA': ['RS0001','RS0004','RS0005','RS0006','RS0009','RS0012','RS0013','RS0015','RS0016','RS0017','RS0018','RS0019','RS0020','RS0021','RS0022'],
+    'ID_OEMA':['Sapucaia','Canoas VCOMAR','Canoas P Universitário','Esteio Vila Ezequiel','Triunfo DEPREC','Gravataí C Jardim Timbaúva','Charqueadas-AT','Guaiba Parque 35', 'Triunfo Polo Movel','Esteio Parque de Exposição','Rio Grande Porto','Candiota Aeroporto','Candiota Candiota','Candiota Tres Lagoas','POA CETE']})
+    return df_ids
+
+    
 #%% Função para PR
 
 def rectify_PR(path):
     print(path)
 
-lista_estados = ['SC','RS','PR']
-
-funcoes = {
-    'SC': rectify_SC,
-    'RS': rectify_RS,
-    'PR': rectify_PR
-}
-
+'''
 for estado in lista_estados:
     
     path = os.getcwd()+'/data/DADOS_BRUTOS/' + estado + '/'
 
     funcoes[estado](path)
-    
+'''
 
 '''
     
@@ -1243,3 +1451,27 @@ def rectify_MA(path):
 
     lista = list(set(lista))
 '''
+
+funcoes = {
+    'MG': rectify_MG,
+    'ES': rectify_ES,
+    'SP': rectify_SP,
+    'RJ': rectify_RJ,
+    
+    'SC': rectify_SC,
+    'RS': rectify_RS,
+    'PR': rectify_PR
+}
+
+lista_estados = ['RJ','SP','SC','RS','ES']
+
+tabela_ids = pd.read_csv('/home/nobre/Notebooks/RQAR_2025_book/data/Monitoramento_QAr_BR.csv')
+tabela_pols = pd.read_csv('/home/nobre/Notebooks/RQAR_2025_book/data/dicionarios/CODIGO_POLUENTES.csv')
+
+for estado in lista_estados:
+    
+    path = os.getcwd()+'/data/DADOS_BRUTOS/' + estado + '/'
+
+    df_ids = funcoes[estado](path)
+    
+    create_df_estacao(estado,df_ids)

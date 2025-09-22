@@ -227,14 +227,13 @@
 <li class="toctree-l2"><a class="reference internal" href="sec04_2.html">4.2. Análise de tendências e sazonalidade da qualidade do ar no Brasil</a></li>
 <li class="toctree-l2 current active"><a class="current reference internal" href="#">4.3.	Violações dos padrões de qualidade do ar no Brasil</a></li>
 <li class="toctree-l2"><a class="reference internal" href="sec04_4.html">4.4.	Designação de áreas de atendimento e não atendimento dos padrões de qualidade do ar</a></li>
-<li class="toctree-l2"><a class="reference internal" href="sec04_5.html">4.5.	Síntese das observações da qualidade do ar por região</a></li>
-<li class="toctree-l2"><a class="reference internal" href="sec04_6.html">4.6.	Interface com saúde</a></li>
+<li class="toctree-l2"><a class="reference internal" href="sec04_5.html">4.5.	Interface com saúde</a></li>
+<li class="toctree-l2"><a class="reference internal" href="sec04_6.html">4.6.	Síntese das observações da qualidade do ar por região</a></li>
 </ul>
 </details></li>
 <li class="toctree-l1"><a class="reference internal" href="../chpt05/chpt05.html">5.	Perspectivas de ampliação da rede e medidas de gestão das fontes de poluição</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../chpt06/chpt06.html">6.	Comunicação e divulgação dos dados nos estados brasileiros</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../chpt07/chpt07.html">7.	Publicações científicas em periódicos sobre a poluição no Brasil</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../chpt08/chpt08.html">8.	Considerações finais</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../chpt07/chpt07.html">7.	Considerações finais</a></li>
 </ul>
 
     </div>
@@ -501,112 +500,120 @@ document.write(`
   color: #24292E;
   cursor: pointer;
   display: inline-block;
-  font-family: -apple-system, system-ui, "Segoe UI", Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji";
+  font-family: -apple-system, system-ui, "Segoe UI", Helvetica, Arial, sans-serif;
   font-size: 14px;
   font-weight: 500;
   line-height: 20px;
-  list-style: none;
   padding: 6px 16px;
-  position: relative;
-  transition: background-color 0.2s cubic-bezier(0.3, 0, 0.5, 1);
-  user-select: none;
-  -webkit-user-select: none;
-  touch-action: manipulation;
+  transition: background-color 0.2s;
   vertical-align: middle;
-  white-space: nowrap;
-  word-wrap: break-word;
   background: unset;
 }
-
-.btn:hover {
-  background-color: #F3F4F6;
-  text-decoration: none;
-  transition-duration: 0.1s;
-}
-
-.btn:disabled {
+.btn:hover { background-color: #F3F4F6; }
+.btn:disabled { color: #959DA5; cursor: default; }
+    
+/* Tabela de estatísticas */
+.stats-table {
+  border-collapse: collapse;
+  width: 100%;
+  margin: 15px auto; /* centraliza horizontalmente */
+  max-width: 500px;
+  margin-top: 20px;
+  font-family: Arial, sans-serif;
   background-color: #FAFBFC;
-  border-color: rgba(27, 31, 35, 0.15);
-  color: #959DA5;
-  cursor: default;
+  border: 1px solid rgba(27,31,35,0.15);
+  border-radius: 8px;
+  overflow: hidden;
 }
-
-.btn:active {
-  background-color: #EDEFF2;
-  box-shadow: rgba(225, 228, 232, 0.2) 0 1px 0 inset;
-  transition: none 0s;
+.stats-table th, .stats-table td {
+  padding: 8px 12px;
+  text-align: left;
 }
-
-.btn:focus {
-  outline: 1px transparent;
+.stats-table th {
+  background-color: #F3F4F6;
+  font-weight: 600;
 }
-
-.btn:before {
-  display: none;
+.stats-table tr:nth-child(even) {
+  background-color: #F9F9F9;
 }
-
-.btn:-webkit-details-marker {
-  display: none;
-} 
+    
+body { font-family: Inter, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial; margin: 12px; }
+label { margin-right:6px; }
+select, input { margin-right: 14px; }
+#mapDiv { border-radius:6px; box-shadow: 0 1px 4px rgba(0,0,0,0.08); }
 </style>
-<!-- Dependencies -->
+<!-- Dependências -->
 <script src="https://cdn.plot.ly/plotly-2.26.1.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+</head>
+<body>
+<div id="mapDiv" style="width:90%; height:360px; margin-bottom:12px;"></div>
 <div>
   <label>Estação:</label>
-  <select id="stationSelect"></select>
+  <select id="stationSelect" disabled></select> <!-- agora é só display -->
 <p><label>Poluente:</label>
 <select id="pollutantSelect"></select></p>
 <p><label>Tempo de média:</label>
-<select id="aveTimeSelect"></select></p>
-<p><label>Início:</label>
+<select id="aveTimeSelect"></select>
+<br>
+<br>
+<label>Início:</label>
 <input type="datetime-local" id="startDate"></p>
 <p><label>Fim:</label>
-<input type="datetime-local" id="endDate"></p>
-<p><button id="loadDataBtn" class="btn">Load Data</button>
+<input type="datetime-local" id="endDate">
+<br>
+<br>
+<button id="loadDataBtn" class="btn">Load Data</button>
 <button id="plotBtn" class="btn" disabled>Plot Data</button>
 <button id="downloadBtn" class="btn" disabled>Download CSV</button></p>
 </div>
 <div id="plotDiv" style="width:100%; height:600px;"></div>
 <div id="statsTable" style="margin-top:20px;"></div>
 <script>
+/* ========== Config ========== */
 const DATA_FOLDER = 'https://lcqar.ufsc.br/files/RQAr_2025/MQAr';
 const METADATA_CSV = 'https://lcqar.ufsc.br/files/RQAr_2025/Monitoramento_QAr_BR.csv';
 const FASES_CSV = 'https://lcqar.ufsc.br/files/RQAr_2025/fases_CONAMA506.csv';
 
+/* ========== Estado ========== */
 let metadata = [];
 let fasesData = [];
 let stationPollutants = {};
-let currentData = [];
-let filteredData = [];
+let currentData = [];   // dados crus do CSV carregado (array de objetos)
+let filteredData = [];  // dados preparados para plotagem (array {datetime, valor})
+let stationIds = [];    // ids únicos com coordenadas para o mapa
+let stationCoordsArr = []; // array de objetos {ID_MMA, LATITUDE, LONGITUDE, ID_OEMA, ...}
+let mapDivEl;
 
-// Promise wrapper for Papa.parse
+/* ========== Util: wrapper Papa.parse -> Promise ========== */
 function parseCSV(url) {
   return new Promise((resolve, reject) => {
     Papa.parse(url, {
       download: true,
       header: true,
       skipEmptyLines: true,
-      complete: res => resolve(res.data),
+      complete: res => resolve(res.data || []),
       error: err => reject(err)
     });
   });
 }
 
-// Init: load CSVs
+/* ========== Inicialização: carrega metadados e fases ========== */
 Promise.all([parseCSV(METADATA_CSV), parseCSV(FASES_CSV)])
   .then(([metaRows, fasesRows]) => {
-    metadata = metaRows.filter(r => r.ID_MMA && r.POLUENTE);
-    fasesData = fasesRows;
+    // filtra linhas úteis
+    metadata = metaRows.filter(r => (r.ID_MMA || '').toString().trim() && (r.POLUENTE || '').toString().trim());
+    fasesData = fasesRows; // assumimos cabeçalhos corretos em fases CSV
 
     buildStationPollutantsMap();
     populatePollutantSelect();
-    populateStationSelect();
+    plotStationsMap();
     updateAveTimeDropdown();
 
-    const polSelect = document.getElementById('pollutantSelect');
-    polSelect.addEventListener('change', () => {
-      populateStationSelect();
+    // listeners
+    document.getElementById('pollutantSelect').addEventListener('change', () => {
+      // quando mudar poluente fora do mapa, atualiza lista de estações disponíveis (mantemos dropdown de estação livre)
+      //populateStationSelectByPol();
       updateAveTimeDropdown();
       document.getElementById('plotBtn').disabled = true;
       document.getElementById('downloadBtn').disabled = true;
@@ -617,380 +624,501 @@ Promise.all([parseCSV(METADATA_CSV), parseCSV(FASES_CSV)])
     document.getElementById('downloadBtn').addEventListener('click', downloadFilteredCSV);
   })
   .catch(err => {
-    console.error('Erro ao carregar CSVs:', err);
-    alert('Erro ao carregar CSVs (veja console).');
+    console.error('Erro carregando CSVs:', err);
+    alert('Erro ao carregar metadados ou fases. Veja console.');
   });
 
-function buildStationPollutantsMap() {
+/* ========== Construir mapa auxiliar ========== */
+function plotStationsMap() {
+  // criamos um mapa único de estações com coordenadas (ID_MMA -> primeira linha com lat/lon)
+  const stationMap = {};
+  metadata.forEach(r=>{
+    const id = (r.ID_MMA||'').toString().trim();
+    const lat = parseFloat((r.LATITUDE||'').toString().replace(',','.'));
+    const lon = parseFloat((r.LONGITUDE||'').toString().replace(',','.'));
+    if(!id || Number.isNaN(lat) || Number.isNaN(lon)) return;
+    if(!stationMap[id]) stationMap[id] = r; // mantém a primeira ocorrência
+  });
+  stationCoordsArr = Object.values(stationMap);
+  if(!stationCoordsArr.length) return;
+
+  stationIds = stationCoordsArr.map(r => (r.ID_MMA||'').toString().trim());
+  const lats = stationCoordsArr.map(r => parseFloat(r.LATITUDE));
+  const lons = stationCoordsArr.map(r => parseFloat(r.LONGITUDE));
+  const texts = stationCoordsArr.map(r => `${r.ID_MMA} — ${r.ID_OEMA || ''}`);
+
+  const trace = {
+    type: "scattermapbox",
+    lat: lats,
+    lon: lons,
+    mode: "markers",
+    text: texts,
+    customdata: stationIds,
+    marker: { size: 10, color: Array(stationIds.length).fill('blue'), opacity: Array(stationIds.length).fill(0.8) },
+    hoverinfo: "text"
+  };
+
+  const layout = {
+    mapbox: { style: 'open-street-map', center: { lat: lats[0], lon: lons[0] }, zoom: 5 },
+    margin: { t: 0, b: 0, l: 0, r: 0 }
+  };
+
+  mapDivEl = document.getElementById('mapDiv');
+  Plotly.newPlot(mapDivEl, [trace], layout, { responsive: true });
+
+  // clique no mapa seleciona estação
+  mapDivEl.on('plotly_click', function(data){
+    if(data.points && data.points.length>0) {
+      const stationId = data.points[0].customdata;
+      selectStation(stationId);
+    }
+  });
+}
+
+/* quando clicar no mapa: centraliza, destaca, atualiza dropdowns */
+function selectStation(stationId){
+  // atualiza marcador (cores/tamanhos/opacidade)
+  const newColors = stationIds.map(id => id === stationId ? 'lime' : 'blue');
+  const newSizes  = stationIds.map(id => id === stationId ? 16 : 10);
+  const newOpac   = stationIds.map(id => id === stationId ? 1 : 0.8);
+  
+  Plotly.restyle(mapDivEl, {
+    'marker.color': [newColors],
+    'marker.size': [newSizes],
+    'marker.opacity': [newOpac]
+  }, [0]);
+
+  // centraliza mapa na estação
+  const idx = stationIds.indexOf(stationId);
+  if(idx >= 0 && stationCoordsArr[idx]) {
+    Plotly.relayout(mapDivEl, {
+      'mapbox.center.lat': parseFloat(stationCoordsArr[idx].LATITUDE),
+      'mapbox.center.lon': parseFloat(stationCoordsArr[idx].LONGITUDE),
+      'mapbox.zoom': 10
+    });
+  }
+
+  // atualiza dropdown de estação (apenas display)
+  const stSel = document.getElementById('stationSelect');
+  stSel.innerHTML = '';
+  const opt = document.createElement('option');
+  opt.value = stationId;
+  opt.textContent = stationId;
+  stSel.appendChild(opt);
+
+
+  // atualiza poluentes disponíveis para a estação
+  const polSel = document.getElementById('pollutantSelect');
+  polSel.innerHTML = '';
+  const pols = (stationPollutants[stationId] || []).slice().sort();
+  if(pols.length) {
+    pols.forEach(p => { const o=document.createElement('option'); o.value=p; o.textContent=p; polSel.appendChild(o); });
+    polSel.selectedIndex = 0;
+    updateAveTimeDropdown();
+  } else {
+    // se não houver poluentes listados, mantém as opções globais
+    populatePollutantSelect();
+  }
+
+  // desabilita botões até carregar os dados
+  document.getElementById('plotBtn').disabled = true;
+  document.getElementById('downloadBtn').disabled = true;
+}
+
+/* ========== Mapeamento estação->poluentes ========== */
+function buildStationPollutantsMap(){
   stationPollutants = {};
-  metadata.forEach(row => {
-    const id = (row.ID_MMA || '').trim();
-    const pol = (row.POLUENTE || '').trim();
-    if (!id || !pol) return;
-    if (!stationPollutants[id]) stationPollutants[id] = new Set();
+  metadata.forEach(row=>{
+    const id = (row.ID_MMA||'').toString().trim();
+    const pol = (row.POLUENTE||'').toString().trim();
+    if(!id || !pol) return;
+    if(!stationPollutants[id]) stationPollutants[id] = new Set();
     stationPollutants[id].add(pol);
   });
-  for (const st in stationPollutants) {
-    stationPollutants[st] = Array.from(stationPollutants[st]).sort();
-  }
+  for(const st in stationPollutants) stationPollutants[st] = Array.from(stationPollutants[st]);
 }
 
+/* ========== Popula selects (poluentes / estações por poluente) ========== */
 function populatePollutantSelect() {
-  const polSelect = document.getElementById('pollutantSelect');
-  polSelect.innerHTML = '';
-  const polSet = new Set(metadata.map(r => (r.POLUENTE || '').trim()).filter(Boolean));
-  Array.from(polSet).sort().forEach(pol => {
-    const opt = document.createElement('option');
-    opt.value = pol;
-    opt.textContent = pol;
-    polSelect.appendChild(opt);
+  const sel = document.getElementById('pollutantSelect');
+  sel.innerHTML = '';
+  //const polSet = new Set(metadata.map(r => (r.POLUENTE||'').toString().trim()).filter(Boolean));
+  //Array.from(polSet).sort().forEach(pol=>{
+  //  const opt = document.createElement('option'); opt.value = pol; opt.textContent = pol;
+  //  sel.appendChild(opt);
+  Array.from(new Set(metadata.map(r => r.POLUENTE))).sort().forEach(pol=>{
+    const opt = document.createElement('option'); opt.value=pol; opt.textContent=pol;
+    sel.appendChild(opt);
   });
-  if (polSelect.options.length) polSelect.selectedIndex = 0;
+  //if(sel.options.length) sel.selectedIndex = 0;
+  //populateStationSelectByPol();
 }
 
-function populateStationSelect() {
-  const pol = (document.getElementById('pollutantSelect').value || '').trim();
+function populateStationSelectByPol() {
+  const pol = (document.getElementById('pollutantSelect').value||'').toString().trim();
   const stSelect = document.getElementById('stationSelect');
+  // se o usuário já escolheu via mapa, não sobrescrever (mas se select estiver disabled -> preencher)
+  const wasDisabled = stSelect.disabled;
   stSelect.innerHTML = '';
-  if (!pol) return;
-
-  const uniqueStations = Array.from(
-    new Set(metadata.filter(r => (r.POLUENTE || '').trim() === pol).map(r => (r.ID_MMA || '').trim()))
-  ).filter(Boolean).sort();
-  uniqueStations.forEach(st => {
-    const opt = document.createElement('option');
-    opt.value = st;
-    opt.textContent = st;
-    stSelect.appendChild(opt);
+  if(!pol) return;
+  const uniqueStations = Array.from(new Set(metadata.filter(r => (r.POLUENTE||'').toString().trim()===pol).map(r => (r.ID_MMA||'').toString().trim()))).filter(Boolean).sort();
+  uniqueStations.forEach(st=>{
+    const opt = document.createElement('option'); opt.value = st; opt.textContent = st; stSelect.appendChild(opt);
   });
-  if (stSelect.options.length) stSelect.selectedIndex = 0;
+  if(wasDisabled) stSelect.disabled = false;
 }
 
-function updateAveTimeDropdown() {
-  const pollutant = (document.getElementById("pollutantSelect").value || '').trim();
-  const aveTimeSelect = document.getElementById("aveTimeSelect");
-  aveTimeSelect.innerHTML = "";
+/* ========== Ave-time dropdown (usa CSV de fases) ========== */
+function normalizePol(str) {
+  if(!str) return '';
+  return str.toString()
+            .normalize('NFD')  // separa acentos
+            .replace(/[\u0300-\u036f]/g, '') // remove acentos
+            .replace(/\s+/g,'') // remove espaços
+            .toLowerCase();
+}
+function updateAveTimeDropdown(){
+  const selectedPollutant = normalizePol(document.getElementById('pollutantSelect').value);
+  const aveTimeSelect = document.getElementById('aveTimeSelect');
+  aveTimeSelect.innerHTML = '';
 
-  const aveTimes = [
-    ...new Set(
-      fasesData
-        .filter(r => ((r.pollutant || '').trim()).startsWith(pollutant))
-        .map(r => (r.ave_time || '').trim())
-        .filter(Boolean)
-    )
-  ].sort();
+  const aveTimes = [...new Set(fasesData
+    .filter(r => normalizePol(r.pollutant) === selectedPollutant)
+    .map(r => (r.ave_time||'').toString().trim())
+    .filter(Boolean)
+  )].sort();
 
-  if (!aveTimes.length) {
+  if(!aveTimes.length){
     const opt = document.createElement('option');
-    opt.value = '';
-    opt.textContent = '-- none --';
+    opt.value='';
+    opt.textContent='-- none --';
     aveTimeSelect.appendChild(opt);
+    console.warn('Nenhum tempo de média encontrado para:', selectedPollutant);
+    console.log('Poluentes disponíveis no CSV:', [...new Set(fasesData.map(r=>normalizePol(r.pollutant)))]);
     return;
   }
 
   aveTimes.forEach(at => {
-    const opt = document.createElement("option");
-    opt.value = at;
-    opt.textContent = at;
-    aveTimeSelect.appendChild(opt);
+    const o = document.createElement('option');
+    o.value = at;
+    o.textContent = at;
+    aveTimeSelect.appendChild(o);
   });
   aveTimeSelect.selectedIndex = 0;
+
+  console.log('Dropdown atualizado com tempos de média:', aveTimes);
 }
 
-function loadStationData() {
-  const pollutant = (document.getElementById('pollutantSelect').value || '').trim();
-  const station = (document.getElementById('stationSelect').value || '').trim();
-  if (!pollutant || !station) {
-    alert('Selecione estação e poluente antes de carregar dados.');
-    return;
-  }
 
-  // 👉 Busca no metadata o registro certo
-  const row = metadata.find(r => (r.ID_MMA || '').trim() === station && (r.POLUENTE || '').trim() === pollutant);
-  if (!row) {
-    alert("Não encontrei combinação estação + poluente no metadata.");
-    return;
-  }
+/* ========== Carrega dados da combinação estação+poluente (forma correta) ========== */
+function loadStationData(){
+  const pol = (document.getElementById('pollutantSelect').value || '').toString().trim();
+  const st = (document.getElementById('stationSelect').value || '').toString().trim();
+  if(!pol || !st){ alert('Clique em uma estação no mapa (ou escolha na lista) e selecione um poluente.'); return; }
 
-  // 👉 pega o ID do poluente
-  const pollutantId = (row.ID_MMA_COMPLETO || '').trim();  // ajuste o nome da coluna se necessário
-  if (!pollutantId) {
-    alert("Não foi possível identificar o ID do poluente no metadata.");
-    return;
-  }
-  // 👉 monta a URL final com station + pollutantId
-  const filename = `${pollutantId}.csv`;
-  const fileUrl = `${DATA_FOLDER}/${encodeURIComponent(pollutant)}/${encodeURIComponent(filename)}`;
+  // encontra a linha do metadata que corresponde à combinação (usa ID_MMA_COMPLETO para montar o arquivo)
+  const row = metadata.find(r => (r.ID_MMA||'').toString().trim() === st && (r.POLUENTE||'').toString().trim() === pol);
+  if(!row){ alert('Combinação estação+poluente não encontrada no metadata.'); return; }
+
+  const fileId = (row.ID_MMA_COMPLETO || row.ID_MMA || '').toString().trim();
+  if(!fileId){ alert('ID_MMA_COMPLETO ausente no metadata para esta combinação.'); return; }
+
+  // monta URL: pasta do poluente / arquivo ID_MMA_COMPLETO.csv  (igual ao primeiro código)
+  const fileUrl = `${DATA_FOLDER}/${encodeURIComponent(pol)}/${encodeURIComponent(fileId)}.csv`;
+  // console.log('Carregando', fileUrl);
 
   Papa.parse(fileUrl, {
     download: true,
     header: true,
     skipEmptyLines: true,
-    complete: res => {
+    complete: function(res){
       currentData = res.data || [];
-      document.getElementById('plotBtn').disabled = currentData.length === 0;
+      if(!currentData.length){ alert('Arquivo carregado, mas sem linhas. Verifique o CSV.'); document.getElementById('plotBtn').disabled = true; return; }
+      alert(`Dados carregados: ${currentData.length} linhas.`);
+      document.getElementById('plotBtn').disabled = false;
       document.getElementById('downloadBtn').disabled = true;
       setDateLimits(currentData);
     },
-    error: err => {
+    error: function(err){
       console.error('Erro ao carregar arquivo:', err);
+      alert(`Erro ao carregar arquivo: ${fileUrl}\nVerifique console.`)
       document.getElementById('plotBtn').disabled = true;
       document.getElementById('downloadBtn').disabled = true;
     }
   });
 }
 
-function setDateLimits(data) {
-  const dates = data.map(row => {
-    const y = parseInt(row.ANO, 10);
-    const m = parseInt(row.MES, 10);
-    const d = parseInt(row.DIA, 10);
-    const h = parseInt(row.HORA, 10) || 0;
-    if ([y,m,d].some(v => Number.isNaN(v))) return null;
-    return new Date(y, m - 1, d, h);
-  }).filter(d => d instanceof Date && !isNaN(d));
-  if (!dates.length) return;
-  const minDate = new Date(Math.min(...dates));
-  const maxDate = new Date(Math.max(...dates));
-  const fmt = d => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}T${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
-  document.getElementById('startDate').value = fmt(minDate);
-  document.getElementById('endDate').value = fmt(maxDate);
+/* Define limites de datas nos inputs a partir dos dados (usa colunas ANO/MES/DIA/HORA quando presente) */
+function setDateLimits(data){
+  if(!data || !data.length) return;
+  let dates = data.map(r=>{
+    // tenta extrair ANO MES DIA HORA (formato do dataset original)
+    const y = parseInt((r.ANO||r.Year||'').toString(),10);
+    const m = parseInt((r.MES||r.Month||'').toString(),10);
+    const d = parseInt((r.DIA||r.Day||'').toString(),10);
+    const h = parseInt((r.HORA||r.Hour||'0').toString(),10) || 0;
+    if([y,m,d].some(v=>Number.isNaN(v))) return null;
+    return new Date(y, m-1, d, h);
+  }).filter(d=>d instanceof Date && !isNaN(d));
+  if(!dates.length) {
+    // tenta colunas com timestamp/Date
+    const alt = data.map(r => {
+      const keys = Object.keys(r);
+      for(const k of keys){
+        const v = r[k];
+        if(typeof v === 'string' && /^\d{4}-\d{2}-\d{2}/.test(v)) return new Date(v);
+      }
+      return null;
+    }).filter(d=>d instanceof Date && !isNaN(d));
+    dates = alt;
+  }
+  if(!dates.length) return;
+  const min = new Date(Math.min(...dates)), max = new Date(Math.max(...dates));
+  const pad = n => String(n).padStart(2,'0');
+  const startStr = `${min.getFullYear()}-${pad(min.getMonth()+1)}-${pad(min.getDate())}T${pad(min.getHours())}:${pad(min.getMinutes())}`;
+  const endStr   = `${max.getFullYear()}-${pad(max.getMonth()+1)}-${pad(max.getDate())}T${pad(max.getHours())}:${pad(max.getMinutes())}`;
+  document.getElementById('startDate').value = startStr;
+  document.getElementById('endDate').value = endStr;
+  document.getElementById('startDate').min = startStr;
+  document.getElementById('startDate').max = endStr;
+  document.getElementById('endDate').min = startStr;
+  document.getElementById('endDate').max = endStr;
 }
 
-function doPlot() {
-  if (!currentData.length) return;
+/* ========== Plot (complexo, com médias, fases, shapes) ========== */
+function doPlot(){
+  if(!currentData.length){ alert('Nenhum dado carregado.'); return; }
 
-  const pollutant = (document.getElementById('pollutantSelect').value || '').trim();
-  const ave_time = (document.getElementById("aveTimeSelect").value || '').trim().toLowerCase();
-  const startDateVal = document.getElementById('startDate').value;
-  const endDateVal = document.getElementById('endDate').value;
-  const startDate = startDateVal ? new Date(startDateVal) : null;
-  const endDate = endDateVal ? new Date(endDateVal) : null;
+  // Converte CSV bruto em array {datetime, valor} e aplica filtro de intervalo
+  const startVal = document.getElementById('startDate').value;
+  const endVal = document.getElementById('endDate').value;
+  const start = startVal ? new Date(startVal) : null;
+  const end = endVal ? new Date(endVal) : null;
 
-  // Map CSV to datetime + numeric
-  filteredData = currentData.map(row => {
-    const y = parseInt(row.ANO, 10);
-    const m = parseInt(row.MES, 10);
-    const d = parseInt(row.DIA, 10);
-    const h = parseInt(row.HORA, 10) || 0;
-    const dt = (Number.isNaN(y) || Number.isNaN(m) || Number.isNaN(d)) ? null : new Date(y, m - 1, d, h);
-
+  // map raw rows -> datetime and numeric value (assume colunas ANO/MES/DIA/HORA e VALOR)
+  filteredData = currentData.map(r=>{
+    const y = parseInt((r.ANO||'').toString(),10);
+    const m = parseInt((r.MES||'').toString(),10);
+    const d = parseInt((r.DIA||'').toString(),10);
+    const h = parseInt((r.HORA||'0').toString(),10) || 0;
+    const dt = (Number.isNaN(y) || Number.isNaN(m) || Number.isNaN(d)) ? null : new Date(y, m-1, d, h);
     let val = null;
-    if (row.VALOR !== undefined && row.VALOR !== null) {
-      const num = parseFloat(String(row.VALOR).replace(',', '.').trim());
-      if (!Number.isNaN(num) && num >= 0) val = num;
+    if(r.VALOR !== undefined && r.VALOR !== null){
+      const num = parseFloat(String(r.VALOR).replace(',', '.').trim());
+      if(!Number.isNaN(num) && num >= 0) val = num;
     }
-
     return { datetime: dt, valor: val };
-  })
-  .filter(r => r.datetime && (!startDate || r.datetime >= startDate) && (!endDate || r.datetime <= endDate))
-  .sort((a, b) => a.datetime - b.datetime);
+  }).filter(r => r.datetime && (!start || r.datetime >= start) && (!end || r.datetime <= end))
+    .sort((a,b) => a.datetime - b.datetime);
 
+  if(!filteredData.length){ alert('Sem dados no intervalo selecionado.'); return; }
 
-  // --- APPLY TIME AVERAGING ---
+  const pollutant = (document.getElementById('pollutantSelect').value || '').toString().trim();
+  const ave_time = (document.getElementById('aveTimeSelect').value || '').toString().trim().toLowerCase();
+  const station = (document.getElementById('stationSelect').value||'').toString().trim();
+
+  // --- APPLY TIME AVERAGING (24h, 8h rolling, annual) ---
+  let plottedData = filteredData.slice(); // cópia para manipular
   if (ave_time.includes("24") || ave_time.includes("day") || ave_time === "d") {
     const grouped = {};
-    filteredData.forEach(p => {
+    plottedData.forEach(p => {
       if (p.valor != null) {
         const dayKey = p.datetime.toISOString().slice(0,10);
         if (!grouped[dayKey]) grouped[dayKey] = [];
         grouped[dayKey].push(p.valor);
       }
     });
-    filteredData = Object.entries(grouped).map(([day, vals]) => ({
-      datetime: new Date(day),
-      valor: vals.reduce((a,b)=>a+b,0)/vals.length
-    }));
+    plottedData = Object.entries(grouped).map(([day, vals]) => ({ datetime: new Date(day), valor: vals.reduce((a,b)=>a+b,0)/vals.length }));
+    plottedData.sort((a,b)=>a.datetime-b.datetime);
   } else if (ave_time.includes("8")) {
-    filteredData.sort((a,b)=>a.datetime-b.datetime);
+    // 8h rolling -> produzir daily maxima of 8h averages
+    const rows = filteredData.slice().sort((a,b)=>a.datetime-b.datetime);
     let rolling = [];
     const dailyMax = {};
-    for (let i=0;i<filteredData.length;i++){
-      rolling.push(filteredData[i]);
+    for (let i=0;i<rows.length;i++){
+      if(rows[i].valor==null) { rolling = []; continue; }
+      rolling.push(rows[i]);
       if(rolling.length>8) rolling.shift();
-      if(rolling.length>=6){
-        const avg = rolling.reduce((s,r)=>s+r.valor,0)/rolling.length;
-        const dayKey = filteredData[i].datetime.toISOString().slice(0,10);
-        if(!dailyMax[dayKey] || avg>dailyMax[dayKey]) dailyMax[dayKey] = avg;
+      if(rolling.length>=6){ // require at least 6 samples to approximate
+        const avg = rolling.reduce((s,r)=>s + (r.valor||0), 0) / rolling.length;
+        const dayKey = rows[i].datetime.toISOString().slice(0,10);
+        if(!dailyMax[dayKey] || avg > dailyMax[dayKey]) dailyMax[dayKey] = avg;
       }
     }
-    filteredData = Object.entries(dailyMax).map(([day,maxVal])=>({datetime:new Date(day), valor:maxVal}));
+    plottedData = Object.entries(dailyMax).map(([day, val])=>({ datetime: new Date(day), valor: val })).sort((a,b)=>a.datetime-b.datetime);
   } else if (ave_time.includes("year") || ave_time.includes("ano") || ave_time.includes("anual") || ave_time.includes("annual")) {
     const grouped = {};
-    filteredData.forEach(p=>{
-      if(p.valor!=null){
+    filteredData.forEach(p => {
+      if (p.valor != null) {
         const yr = p.datetime.getFullYear();
-        if(!grouped[yr]) grouped[yr]=[];
+        if(!grouped[yr]) grouped[yr] = [];
         grouped[yr].push(p.valor);
       }
     });
-    filteredData = Object.entries(grouped).map(([yr,vals])=>({
-      datetime:new Date(`${yr}-01-01`),
-      valor:vals.reduce((a,b)=>a+b,0)/vals.length
-    }));
+    plottedData = Object.entries(grouped).map(([yr, vals])=>({ datetime: new Date(`${yr}-01-01`), valor: vals.reduce((a,b)=>a+b,0)/vals.length })).sort((a,b)=>a.datetime-b.datetime);
   }
 
-  // --- MAX VALUE AFTER AVERAGING ---
-  const numericVals = filteredData.map(p=>p.valor).filter(v=>v!=null);
+  // numeric array for stats
+  const numericVals = plottedData.map(p => p.valor).filter(v => v != null && !isNaN(v));
   const maxVal = numericVals.length ? Math.max(...numericVals)*1.1 : 10;
 
-  // --- FILTER PHASES ---
-  const fasesForPol = fasesData.filter(r=>{
-    const pol = (r.pollutant||'').trim();
-    const at = (r.ave_time||'').trim();
-    return pol.startsWith(pollutant) && (!ave_time || at===ave_time);
-  });
-
+  // --- FILTER & CONSTRUCT PHASE SHAPES from fasesData ---
+  const fasesForPol = fasesData.filter(r => ((r.pollutant||'').toString().trim()).startsWith(pollutant) && (!ave_time || (r.ave_time||'').toString().trim().toLowerCase() === ave_time));
   const plotShapes = fasesForPol.map(r=>{
-    let y0 = parseFloat(String(r.y0||'').replace(',','.'));
-    let y1 = parseFloat(String(r.y1||'').replace(',','.'));
+    let y0 = parseFloat(String(r.y0||r.y0_val||'').replace(',','.'));
+    let y1 = parseFloat(String(r.y1||r.y1_val||'').replace(',','.'));
+    if (Number.isNaN(y0)) y0 = null;
+    if (Number.isNaN(y1)) y1 = null;
 
-    // Apply PI-1 only for non-annual averages
-    if (!(ave_time.includes("year") || ave_time.includes("ano") || ave_time.includes("anual") || ave_time.includes("annual"))) {
-        if (r.phase==='PI-1') y1 = maxVal;
+    // If PI-1 and not annual apply "to top" logic (as in your prior code)
+    if (!(ave_time.includes("year") || ave_time.includes("ano") || ave_time.includes("anual") || ave_time.includes("annual"))){
+      if ((r.phase||'').toString().trim() === 'PI-1' && y1 !== null) {
+        // set y1 to maxVal so PI-1 extends upward
+        y1 = maxVal;
+      }
     }
 
-    if(Number.isNaN(y0)&&Number.isNaN(y1)) return null;
-    if((!Number.isNaN(y0))&&Number.isNaN(y1)) {
-      return {
-        type:'rect',
-        xref:'paper',
-        x0:0, x1:1,
-        y0, y1: maxVal,
-        fillcolor:r.color||'rgba(200,200,200,0.3)',
-        line:{width:0},
-        layer:'below',
-        name: r.phase
-      };  
-    }
+    if(y0 === null && y1 === null) return null;
+
+    // if y1 missing, extend to maxVal
+    const yLow = (y0 === null) ? 0 : y0;
+    const yHigh = (y1 === null) ? maxVal : y1;
+
     return {
       type:'rect',
       xref:'paper',
       x0:0, x1:1,
-      y0, y1,
-      fillcolor:r.color||'rgba(200,200,200,0.3)',
-      line:{width:0},
-      layer:'below',
-      name: r.phase
+      y0: yLow,
+      y1: yHigh,
+      fillcolor: r.color || 'rgba(200,200,200,0.25)',
+      line: { width: 0 },
+      layer: 'below',
+      name: r.phase || ''
     };
   }).filter(Boolean);
 
-  const shapeLegends = plotShapes.map(shape => {
-    return {
-      x: [null], y: [null],
-      mode: "lines",
-      line: {color: shape.fillcolor, width: 10},
-      name: shape.name
-    }
-  })
+  // shape legends as traces (small trick to show legend)
+  const shapeLegends = plotShapes.map(s => ({
+    x:[null], y:[null], mode:'lines', line:{color:s.fillcolor, width:10}, name:s.name
+  }));
 
+  // --- BUILT PLOT DATA ---
   let plotData = [];
-
   if (ave_time.includes("year") || ave_time.includes("ano") || ave_time.includes("anual") || ave_time.includes("annual")) {
-      // --- ANNUAL BAR PLOT ---
-      const years = filteredData.map(p => p.datetime);
-      const values = filteredData.map(p => p.valor);
-
-      plotData.push({
-          type: 'bar',
-          x: years,
-          y: values,
-          marker: { color: 'steelblue', opacity: 0.5 },
-          width: 90*24*3600*1000, // ~3 months in ms, small width
-          name: 'Annual Average'
-      });
-
-      var layout = {
-          xaxis: {
-              title: 'Ano',
-              tickformat: '%Y',
-              dtick: "M12"
-          },
-          yaxis: { title: 'Concentração', range: [0, Math.max(...values)*1.1], rangemode: 'nonnegative' },
-          shapes: plotShapes,
-          title: `Série anual - ${pollutant}`,
-          hovermode: 'x unified',
-          plot_bgcolor: 'rgba(0.9,0.9,0.9,0.3)',
-          showlegend: true,
-      };
+    // bar plot for annual values
+    const years = plottedData.map(p => p.datetime);
+    const values = plottedData.map(p => p.valor);
+    plotData.push({
+      type:'bar',
+      x: years,
+      y: values,
+      marker: { opacity: 0.6 },
+      name: 'Média anual'
+    });
+    var layout = {
+      xaxis: { title: 'Ano', tickformat: '%Y', dtick: "M12" },
+      yaxis: { title: 'Concentração', range: [0, Math.max(...values)*1.1], rangemode: 'nonnegative' },
+      shapes: plotShapes,
+      title: `${(station||'')} — ${(pollutant||'')} —  Série anual `,
+      hovermode: 'x unified',
+      plot_bgcolor:'rgba(0.95,0.95,0.95,0.4)',
+      showlegend: true
+    };
   } else {
-        plotData.push({
-          type: 'scatter',
-          mode: 'lines',
-          x: filteredData.map(p => p.datetime),
-          y: filteredData.map(p => p.valor), // contém null onde não há dado
-          line: { color: 'steelblue', width: 1.5 },
-          connectgaps: false,   // <- ESSENCIAL
-          name: pollutant
-        });
-
-
-      var layout = {
-          title:`Série temporal - ${pollutant}`,
-          hovermode:'x unified',
-          plot_bgcolor:'rgba(0.9,0.9,0.9,0.3)',
-          yaxis:{title:'Concentração', range:[0,maxVal], rangemode:'nonnegative'},
-          xaxis:{title:'Data/Hora'},
-          shapes: plotShapes,
-          showlegend: true,
-      };
+    // timeseries
+    plotData.push({
+      type: 'scatter',
+      mode: 'lines',
+      x: plottedData.map(p => p.datetime),
+      y: plottedData.map(p => p.valor),
+      line: { color: 'blue', width: 1.5 },
+      connectgaps: false,
+      name: pollutant || 'Série'
+    });
+    var layout = {
+      title: `${(station||'')} — ${(pollutant||'')} — ${(ave_time||'')}h`,
+      hovermode: 'x unified',
+      plot_bgcolor: 'rgba(0.95,0.95,0.95,0.4)',
+      yaxis: { title: 'Concentração', range: [0, maxVal], rangemode: 'nonnegative' },
+      xaxis: { title: 'Data/Hora' },
+      shapes: plotShapes,
+      showlegend: true
+    };
   }
 
   plotData = plotData.concat(shapeLegends);
-
   Plotly.newPlot('plotDiv', plotData, layout, {responsive:true});
-  document.getElementById('downloadBtn').disabled = filteredData.length===0;
-  // --- BUILD EXCEEDANCE TABLE ---
+
+  // habilita download se houver valores
+  document.getElementById('downloadBtn').disabled = plottedData.length === 0;
+
+  // tabela de excedências (usa fasesForPol e numericVals)
   buildExceedanceTable(fasesForPol, numericVals);
 }
 
-
-function buildExceedanceTable(fasesForPol, numericVals) {
+/* ========== Tabela de excedência ========== */
+function buildExceedanceTable(fasesForPol, numericVals){
   const container = document.getElementById('statsTable');
-  container.innerHTML = ""; // reset
-
-  if (!numericVals.length || !fasesForPol.length) {
-    container.innerHTML = "<p><i>Sem dados ou padrões para calcular excedências.</i></p>";
+  container.innerHTML = '';
+  if(!numericVals.length || !fasesForPol.length){
+    container.innerHTML = "<p><i>Sem dados ou sem padrões para calcular excedências.</i></p>";
     return;
   }
 
-  let html = "<table border='1' cellspacing='0' cellpadding='4' style='border-collapse:collapse; width:100%; text-align:center'>";
-  html += "<thead><tr style='background:#f0f0f0'><th>Padrão</th><th>Limite (µg/m³)</th><th>Excedências</th><th>% Excedência</th></tr></thead><tbody>";
-
+  let html = '<table class="stats-table">';
+  html += "<thead><tr><th>Padrão / Fase</th><th>Limite<br> (µg/m³)</th><th>Excedências</th><th>%<br> Excedência</th></tr></thead><tbody>";
   const n = numericVals.length;
 
   fasesForPol.forEach(r => {
-    let y1 = parseFloat(String(r.y1||'').replace(',','.'));
-    if (isNaN(y1)) return;
-
+    const y1 = parseFloat(String(r.y1||'').replace(',','.'));
+    if(Number.isNaN(y1)) return;
     const exceedCount = numericVals.filter(v => v > y1).length;
     const perc = ((exceedCount / n) * 100).toFixed(1);
-
-    html += `<tr style="background:${r.color || 'transparent'}20">
-      <td>${r.phase || '-'}</td>
-      <td>${y1}</td>
-      <td>${exceedCount}</td>
-      <td>${perc}%</td>
-    </tr>`;
+    html += `<tr style="background:${(r.color||'transparent')}20"><td>${r.phase||'-'}</td><td>${y1}</td><td>${exceedCount}</td><td>${perc}%</td></tr>`;
   });
 
   html += "</tbody></table>";
   container.innerHTML = html;
 }
 
-
-
+/* ========== Download CSV ========== */
 function downloadFilteredCSV(){
-  if(!filteredData.length){alert('Nenhum dado filtrado para baixar.'); return;}
-  const csvString = Papa.unparse(filteredData.map(r=>({DataHora:r.datetime?r.datetime.toISOString():'', Valor:r.valor})));
-  const blob = new Blob([csvString], {type:'text/csv;charset=utf-8;'});
+  // Reconstituir os dados exibidos no gráfico (re-parsing a partir de currentData com os mesmos passos do doPlot)
+  if(!currentData.length){ alert('Nenhum dado carregado para download.'); return; }
+  // Gera csv com colunas DataHora (ISO) e Valor com o mesmo processo de filtragem que doPlot aplicou
+  // Para simplicidade: usa a variável plotted data obtida de doPlot via leitura do gráfico
+  const gd = document.getElementById('plotDiv');
+  if(!gd.data || !gd.data.length){ alert('Nenhum dado plotado para download.'); return; }
+
+  // tenta extrair trace principal (tipo scatter ou bar)
+  const trace = gd.data.find(t => t.name && t.type === 'scatter') || gd.data[0];
+  if(!trace){ alert('Não foi possível extrair dados para download.'); return; }
+
+  // para scatter: trace.x (Date) e trace.y (values)
+  const rows = [];
+  if(trace.x && trace.y && trace.x.length === trace.y.length){
+    for(let i=0;i<trace.x.length;i++){
+      const dt = (trace.x[i] instanceof Date) ? trace.x[i].toISOString() : new Date(trace.x[i]).toISOString();
+      const val = trace.y[i];
+      rows.push({ DataHora: dt, Valor: val });
+    }
+  } else {
+    alert('Formato de dados inesperado para exportação.');
+    return;
+  }
+
+  const csvString = Papa.unparse(rows);
+  const blob = new Blob([csvString], { type: 'text/csv;charset=utf-8;' });
   const url = URL.createObjectURL(blob);
-  const pollutant = (document.getElementById('pollutantSelect').value||'').trim();
-  const station = (document.getElementById('stationSelect').value||'').trim();
+  const pollutant = (document.getElementById('pollutantSelect').value||'').toString().trim();
+  const station = (document.getElementById('stationSelect').value||'').toString().trim();
   const filename = `${station}_${pollutant}_filtrado.csv`;
-  const link=document.createElement("a"); link.href=url; link.download=filename; document.body.appendChild(link); link.click(); document.body.removeChild(link);
+  const a = document.createElement('a'); a.href = url; a.download = filename; document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  URL.revokeObjectURL(url);
 }
 </script>
+</body>
+</html>
 <div class="admonition warning">
 <p class="admonition-title">Aviso</p>
 <p>Não obtivemos o registro histório de todas as estações de monitoramento instaladas no Brasil.</p>
