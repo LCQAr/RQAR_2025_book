@@ -69,17 +69,24 @@ DEFAULT_FLATLINE_N = 5
 
 # Instrument resolution tolerance for "identical" (absolute diff <= tol)
 DEFAULT_RESOLUTION_TOL = {
-    "O3": 1.0,
-    "CO": 0.1,
-    "NO2": 1.0,
-    "NOx": 1.0,
-    "SO2": 1.0,
-    "PM25": 0.5,
-    "PM10": 1.0,
+    "O3": 0,
+    "CO": 0,
+    "NO2": 0,
+    "NOx": 0,
+    "SO2": 0,
+    "PM25": 0,
+    "PM10": 0,
+    # "O3": 1.0,
+    # "CO": 0.1,
+    # "NO2": 1.0,
+    # "NOx": 1.0,
+    # "SO2": 1.0,
+    # "PM25": 0.5,
+    # "PM10": 1.0,
 }
 
 # Step-change detector: compares window means before/after a point
-DEFAULT_STEP_WINDOW = 3  # samples on each side
+DEFAULT_STEP_WINDOW = 5  # samples on each side
 
 DEFAULT_STEP_LIMITS = {
     "O3": 80,

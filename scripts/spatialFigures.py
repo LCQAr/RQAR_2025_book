@@ -263,3 +263,122 @@ def spatial_rede_monitoramento(columnRef,columnsToltip,cmap):
 
 
     
+
+import geopandas as gpd
+import folium
+from folium.plugins import MiniMap, Fullscreen, MarkerCluster
+from pathlib import Path
+import os
+import pandas as pd
+
+def build_map_industries_by_pollution(
+    industries_file: str | Path | None = None,
+    rootPath: str | Path | None = None,
+    sample: int | None = None,
+    uf_filter: str | None = None,
+) -> folium.Map:
+    """
+    Mapa Folium com indústrias organizadas por 'Potencial de Poluição da atividade'.
+    - Polígonos são convertidos para centróides em CRS métrico.
+    - Pode filtrar por UF ou usar uma amostra.
+    - Se não passar industries_file, usa o caminho padrão em data/rep_espacial/inputs.
+    """
+
+    # Caminho padrão
+    rootPath = Path(rootPath or os.path.dirname(os.getcwd()))
+    industries_file = Path(
+        industries_file or (rootPath / "data/rep_espacial/inputs/industrial_sites_20250902.gpkg")
+    )
+
+    # Carregar indústrias
+    ind = gpd.read_file(industries_file).to_crs(4326)
+
+    # Filtro opcional por UF
+    if uf_filter and "UF" in ind.columns:
+        ind = ind[ind["UF"].str.upper() == uf_filter.upper()]
+
+    # Amostragem opcional
+    if sample and sample < len(ind):
+        ind = ind.sample(sample, random_state=42)
+
+    # Converter polígonos em centróides (corrigindo CRS)
+    poly_mask = ind.geometry.geom_type.isin(["Polygon", "MultiPolygon"])
+    if poly_mask.any():
+        ind_poly = ind.loc[poly_mask].to_crs(3857)  # métrico
+        ind.loc[poly_mask, "geometry"] = ind_poly.geometry.centroid.to_crs(4326)
+
+    # Centro do mapa
+    minx, miny, maxx, maxy = ind.total_bounds
+    center_lat, center_lon = (miny + maxy) / 2, (minx + maxx) / 2
+
+    # Criar mapa base
+    m = folium.Map(location=[center_lat, center_lon], zoom_start=5, tiles="cartodbpositron")
+
+    # Paleta por potencial
+    color_map = {
+        "Pequeno": "green",
+        "Médio": "orange",
+        "Alto": "red"
+    }
+
+    # Criar uma camada para cada potencial
+    for potencial, color in color_map.items():
+        subset = ind[ind["Potencial de Poluição da atividade"].str.contains(potencial, case=False, na=False)]
+        if subset.empty:
+            continue
+
+        layer = folium.FeatureGroup(name=f"Indústrias — {potencial}", show=False).add_to(m)
+        cluster = MarkerCluster().add_to(layer)
+
+        for _, row in subset.iterrows():
+            g = row.geometry
+            if g is None or g.is_empty:
+                continue
+            lat, lon = g.y, g.x
+            name = row.get("Razão Social", "")
+            tooltip_txt = f"Indústria: {name}" if pd.notna(name) else "Indústria"
+            tooltip_txt += f"<br>Potencial: {potencial}"
+
+            folium.CircleMarker(
+                location=(lat, lon),
+                radius=3,
+                color=color,
+                fill=True,
+                fill_color=color,
+                fill_opacity=0.7,
+                tooltip=tooltip_txt,
+            ).add_to(cluster)
+
+    # Extras
+    MiniMap(toggle_display=True, position="bottomright").add_to(m)
+    Fullscreen().add_to(m)
+    folium.LayerControl(collapsed=False).add_to(m)
+
+    # Legenda fixa
+    legend_html = "".join(
+        f"<div style='display:flex;align-items:center;margin:2px 0;'>"
+        f"<span style='background:{col};width:12px;height:12px;margin-right:6px;border:1px solid #555;'></span>{lab}</div>"
+        for lab, col in color_map.items()
+    )
+    legend = (
+        "<div style='position:fixed;bottom:20px;left:20px;background:white;"
+        "padding:8px;border:1px solid #999;font-size:12px;z-index:9999;border-radius:4px;'>"
+        "<b>Potencial de Poluição</b><br>" + legend_html + "</div>"
+    )
+    m.get_root().html.add_child(folium.Element(legend))
+
+    return m
+
+
+# ==== Teste rápido no Jupyter ====
+rootPath = Path(os.path.dirname(os.getcwd()))
+
+# Exemplo 1: todas as indústrias (pode pesar!)
+# m_ind = build_map_industries_by_pollution()
+
+# Exemplo 2: só SC
+# m_ind = build_map_industries_by_pollution(uf_filter="SANTA CATARINA")
+
+# Exemplo 3: amostra de 3000 indústrias
+m_ind = build_map_industries_by_pollution(sample=3000)
+m_ind

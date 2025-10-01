@@ -22,7 +22,7 @@ os.chdir('/home/nobre/Notebooks/RQAR_2025_book/')
 
 def pol_to_station(df_ids):
 
-    base_path = Path('/home/nobre/Notebooks/RQAR_2025_book/data/MQAr_teste/')
+    base_path = Path('/home/nobre/Notebooks/RQAR_2025_book/data/MQAr/')
 
     id_to_poluentes = {}
     
@@ -61,22 +61,22 @@ def create_df_estacao(uf,df_ids):
         colunas = ['ID_OEMA', 'UF', 'ID_MMA', 'COD_UF_IBGE', 'CIDADE', 'CD_MUN',
                    'PROPRIETARIO', 'PROP_ENTIDADE', 'OPERADOR', 'OP_ENTIDADE', 'LATITUDE',
                    'LONGITUDE', 'MOBILIDADE', 'REALOCACAO', 'MARCA', 'CATEGORIA',
-                   'FUNCIONAMENTO', 'METODO', 'FINALIDADE', 'REP_ESPACIAL', 'POLUENTE',
+                   'FUNCIONAMENTO', 'METODO', 'FINALIDADE', 'POLUENTE',
                    'INICIO', 'STATUS', 'FIM', 'CALIBRACAO', 'OBS_CALIBRACAO', 'MONITORAR',
-                   'FONTE', 'OBS_GERAIS']
+                   'FONTE', 'OBS_GERAIS','DADOS_MONITORAMENTO','RECONHECIDA','REP_ESPACIAL_DECLARADA']
         
         df_estacao = pd.DataFrame(columns=colunas)
 
     df_ids = pol_to_station(df_ids)
 
-    df_estacao = df_estacao.reindex(df_ids.index)
-
-    df_estacao[["ID_MMA", "ID_OEMA", "POLUENTE"]] = df_ids[["ID_MMA", "ID_OEMA", "POLUENTE"]].values
+    mapa = dict(zip(df_ids['ID_MMA'], df_ids['POLUENTE']))
+    
+    df_estacao['POLUENTE'] = df_estacao['ID_MMA'].map(mapa).fillna(df_estacao['POLUENTE'])
 
     df_estacao.loc[:, "COD_UF_IBGE"] = cod_uf
     df_estacao.loc[:, "UF"] = uf
     
-    df_estacao.to_csv('/home/nobre/Notebooks/RQAR_2025_book/data/DADOS_ESTACOES/'+uf+'_estacoes_teste.csv', index=False)
+    df_estacao.to_csv('/home/nobre/Notebooks/RQAR_2025_book/data/DADOS_ESTACOES/'+uf+'_estacoes.csv', index=False)
     
 def ug_to_ppm(df):
 
@@ -1371,21 +1371,12 @@ def rectify_RS(path):
 def rectify_PR(path):
     print(path)
 
-'''
-for estado in lista_estados:
-    
-    path = os.getcwd()+'/data/DADOS_BRUTOS/' + estado + '/'
 
-    funcoes[estado](path)
-'''
-
-'''
-    
 #%% Função para Bahia
 
 def rectify_BA(path):
     
-    path = os.getcwd()+'/data/dados_monitoramento/BA/output_by_station_pollutant/'
+    path = path+'/output_by_station_pollutant/'
     
     dict_pols_stat = defaultdict(list)
     
@@ -1393,47 +1384,127 @@ def rectify_BA(path):
     
     lista=[]
     
+    i = 0
+    
     for item in files:
-                    
+        print(i)
+        i = i + 1
+                   
         if 'csv' in item:
-            pol = item.split('_')[-4]
             
-            pol = tabela_pols.loc[tabela_pols['COD_POLUENTE'] == int(pol), 'NOME_PASTA'].values[0]
-            
-            ano = item.split('_')[-3]
-            mes = item.split('_')[-2]
-            dia = item.split('_')[-1].split('.')[0]
-            
-            estacao = ''.join(item.split('_')[1:-4])
-            
-            df = pd.read_csv(path+item)
-            
-            df['ANO'] = ano
-            df['MES'] = mes
-            df['DIA'] = dia
-            
-            df['DATETIME'] = pd.to_datetime(df["DATETIME"])
-            
-            df.index = df['DATETIME']
-            
-            df['HORA'] = df.index.hour
+            if os.path.getsize(path+item) > 0:  # só tenta ler se não for vazio
+                try:
+                    df = pd.read_csv(path+item)
+                    
+                    pol = item.split('_')[-4]
+                    
+                    pol = tabela_pols.loc[tabela_pols['COD_POLUENTE'] == int(pol), 'NOME_PASTA'].values[0]
+                    
+                    estacao = ''.join(item.split('_')[1:-4])
+                    
+                    df['DATETIME'] = pd.to_datetime(df["DATETIME"])
+                    
+                    df.index = df['DATETIME']
 
-            df = df.rename(columns={'CONC':'VALOR','QAQC':'QAQC_INTERNO'})
-            
-            df = df[['DATETIME','ANO','MES','DIA','HORA','VALOR','QAQC_INTERNO']]
-            
-            dict_pols_stat[estacao+'_'+pol].append(df)
-            
-            #df = pd.read_csv(path+item)
+                    df = df.rename(columns={'CONC':'VALOR','QAQC':'QAQC_INTERNO'})
+                    
+                    dict_pols_stat[estacao+'_'+pol].append(df)
+                    
+                except pd.errors.EmptyDataError:
+                    print(f"Arquivo vazio ou inválido: {path+item}")
+                    df = pd.DataFrame()  # cria DF vazio
+            else:
+                print(f"Arquivo vazio: {path+item}")
+                df = pd.DataFrame()
+    
+    dict_formatado = {}
+    
+    for chave in dict_pols_stat.keys():
+        
+        lista_dfs = dict_pols_stat[chave]
+        
+        df = pd.concat(lista_dfs, ignore_index=True)
 
-    lista = list(set(lista))
+        df["DATETIME"] = pd.to_datetime(df["DATETIME"])
 
+        df = df.set_index("DATETIME")
+
+        df = df.sort_index()
+        
+        lista_horas = pd.date_range(
+            start=df.index.min(), 
+            end=df.index.max(), 
+            freq='H').strftime('%Y-%m-%d %H:%M:%S').tolist()
+        
+        if len(lista_horas) != len(df):
+            df = df.reindex(pd.DatetimeIndex(lista_horas))
+        
+        df.insert(0, 'DATETIME', df.index)
+        df.insert(1, 'ANO', df.index.year)
+        df.insert(2, 'MES', df.index.month)
+        df.insert(3, 'DIA', df.index.day)
+        df.insert(4, 'HORA', df.index.hour)
+        
+        if chave.split('_')[-1] == 'CO':
+            df['UNIDADE'] = 'ppm'
+        else:
+            df['UNIDADE'] = 'ug/m³'
+        
+        dict_formatado[chave] = df
+        
+    primeiros_valores = {}
+
+    for chave, df in dict_formatado.items():
+        
+        if ~df['VALOR'].isna().all() and (df['VALOR'] > 0).any(): 
+            
+            linha_valida = df[df["VALOR"].notna() & (df["VALOR"] > 0)].iloc[0]
+            primeiros_valores[chave] = linha_valida["DATETIME"]
+    
+    codigo_estacao_BA = {}
+    
+    for chave in primeiros_valores.keys():
+        
+        station = chave.split('_')[0]
+        data = primeiros_valores[chave]
+        
+        if station in codigo_estacao_BA:
+            if data <= codigo_estacao_BA[station]:
+                codigo_estacao_BA[station] = data
+        else:
+            codigo_estacao_BA[station] = data
+    
+    sorted_items = sorted(
+        codigo_estacao_BA.items(),
+        key=lambda x: (x[1], x[0])
+    )
+    
+    codigo_estacao_BA = {}
+    for i, (nome, ts) in enumerate(sorted_items, start=1):
+        codigo = f"BA{i:04d}"
+        codigo_estacao_BA[nome] = codigo
+        
+    for chave, df in dict_formatado.items():
+        
+        estacao = codigo_estacao_BA[chave.split('_')[0]]
+        
+        cod_pol = tabela_pols.loc[tabela_pols['POLUENTE'] == chave.split('_')[-1], 'COD_POLUENTE'].values[0]
+        
+        nome_pasta = tabela_pols.loc[tabela_pols['COD_POLUENTE'] == int(cod_pol), 'NOME_PASTA'].values[0]
+        
+        df.to_csv('/home/nobre/Notebooks/RQAR_2025_book/data/MQAr/'+nome_pasta+'/'+estacao+'RA'+str(cod_pol).zfill(3)+'.csv',index=False)
+
+    df_ids = pd.DataFrame({
+    'ID_OEMA': codigo_estacao_BA.keys(),
+    'ID_MMA':list(codigo_estacao_BA.values())})
+
+    return df_ids
 
 #%% Função para Maranhão
 
 def rectify_MA(path):
     
-    path = os.getcwd()+'/data/dados_monitoramento/MA/output_by_station_pollutant/'
+    path = path+'/output_by_station_pollutant/'
     
     dict_pols_stat = defaultdict(list)
     
@@ -1441,16 +1512,445 @@ def rectify_MA(path):
     
     lista=[]
     
+    lista_pols = ['MP25','MP10','CO','O3','NO2','SO2','PTS']
+    
+    lista_regex = ['OUT','CO','NO2','O3IQAR','UVIQAR','MP25',
+                   'COIQAR','IQAR','MP10IQAR','MP25IQAR','O3',
+                   'MP10','SO2','NO2IQAR','PTS','UV','IN']
+    
+    lista_negada = "|".join(lista_regex)
+    
+    padrao = rf"^[A-Z]{{2}}_(.*?)(?=_(?:\d|{lista_negada}))"
+    
     for item in files:
         
-        pol = item.split('_')[-2]
+        if 'csv' in item:
+            
+            pol = item.split('_')[-2]
+            
+            if pol in lista_pols:
+                
+                estacao = re.search(padrao, item)
+                
+                lista.append(estacao.group(1).replace("_", " "))
+                
+                df = pd.read_csv(path+item)
+                
+                pol = tabela_pols.loc[tabela_pols['POLUENTE'] == pol, 'NOME_PASTA'].values[0]
+                
+                estacao = estacao.group(1).replace("_", " ")
+                
+                df['DATETIME'] = pd.to_datetime(df["DATETIME"])
+                
+                df.index = df['DATETIME']
+                
+                df = df.rename(columns={'CONC':'VALOR'})
+                
+                df = df.drop(columns=["COD"])
+                
+                dict_pols_stat[estacao+'_'+pol].append(df)
+    
+    dict_formatado = {}
+    
+    for chave in dict_pols_stat.keys():
         
-        lista.append(pol)
+        lista_dfs = dict_pols_stat[chave]
         
-        # df = pd.read_csv(path+item)
+        df = pd.concat(lista_dfs, ignore_index=True)
 
-    lista = list(set(lista))
-'''
+        df["DATETIME"] = pd.to_datetime(df["DATETIME"])
+
+        df = df.set_index("DATETIME")
+
+        df = df.sort_index()
+        
+        lista_horas = pd.date_range(
+            start=df.index.min(), 
+            end=df.index.max(), 
+            freq='H').strftime('%Y-%m-%d %H:%M:%S').tolist()
+        
+        if len(lista_horas) != len(df):
+            df = df.reindex(pd.DatetimeIndex(lista_horas))
+        
+        df.insert(0, 'DATETIME', df.index)
+        df.insert(1, 'ANO', df.index.year)
+        df.insert(2, 'MES', df.index.month)
+        df.insert(3, 'DIA', df.index.day)
+        df.insert(4, 'HORA', df.index.hour)
+        
+        if chave.split('_')[-1] == 'CO':
+            df['UNIDADE'] = 'ppm'
+        else:
+            df['UNIDADE'] = 'ug/m³'
+        
+        df['QAQC_INTERNO'] = None
+        
+        dict_formatado[chave] = df
+        
+    primeiros_valores = {}
+
+    for chave, df in dict_formatado.items():
+        
+        if ~df['VALOR'].isna().all() and (df['VALOR'] > 0).any(): 
+            
+            linha_valida = df[df["VALOR"].notna() & (df["VALOR"] > 0)].iloc[0]
+            primeiros_valores[chave] = linha_valida["DATETIME"]
+    
+    codigo_estacao_MA = {}
+    
+    for chave in primeiros_valores.keys():
+        
+        station = chave.split('_')[0]
+        data = primeiros_valores[chave]
+        
+        if station in codigo_estacao_MA:
+            if data <= codigo_estacao_MA[station]:
+                codigo_estacao_MA[station] = data
+        else:
+            codigo_estacao_MA[station] = data
+    
+    sorted_items = sorted(
+        codigo_estacao_MA.items(),
+        key=lambda x: (x[1], x[0])
+    )
+    
+    codigo_estacao_MA = {}
+    for i, (nome, ts) in enumerate(sorted_items, start=1):
+        codigo = f"MA{i:04d}"
+        codigo_estacao_MA[nome] = codigo
+        
+    for chave, df in dict_formatado.items():
+        
+        estacao = codigo_estacao_MA[chave.split('_')[0]]
+        
+        cod_pol = tabela_pols.loc[tabela_pols['POLUENTE'] == chave.split('_')[-1], 'COD_POLUENTE'].values[0]
+        
+        nome_pasta = tabela_pols.loc[tabela_pols['COD_POLUENTE'] == int(cod_pol), 'NOME_PASTA'].values[0]
+        
+        df.to_csv('/home/nobre/Notebooks/RQAR_2025_book/data/MQAr/'+nome_pasta+'/'+estacao+'RA'+str(cod_pol).zfill(3)+'.csv',index=False)
+
+    df_ids = pd.DataFrame({
+    'ID_OEMA': codigo_estacao_MA.keys(),
+    'ID_MMA':list(codigo_estacao_MA.values())})
+    
+    return df_ids
+
+#%% Função para Mato Grosso
+
+def ppb_to_ug(df,pol):
+
+    if pol == 'so2':
+
+        df.loc[df["Unidade"] != "ug/m3", "Valor"] *= 2661260.49/10**6        
+
+    elif pol == 'no2':
+
+        df.loc[df["Unidade"] != "ug/m3", "Valor"] *= 1911038.92/10**6        
+
+    elif pol == 'o3':
+
+        df.loc[df["Unidade"] != "ug/m3", "Valor"] *= 1993889.17/10**6        
+    
+    df.loc[:, "Unidade"] = "ug/m3"
+
+    return df
+
+def rectify_MT(path):
+
+    dict_pols_stat = defaultdict(list)
+
+    files = os.listdir(path)
+    
+    print(files)
+    
+    for item in files:
+        
+        estacao = " ".join(item.split('-')[1].split('.')[0].split('_')[0:2])
+    
+        print(estacao)
+    
+        df = pd.read_excel(path+item)
+    
+        df = df.drop(columns=['Nome da estação'])
+    
+        lista_pols = set(df['Poluente'])
+    
+        for pol in lista_pols:
+    
+            df_pol = df[df["Poluente"] == pol]
+            
+            if pol in ['no2','so2','o3']:
+    
+                df_pol = ppb_to_ug(df_pol,pol)
+    
+            df_pol_hora = df_pol.groupby(["Ano", "Mes", "Dia", "Hora", "Unidade"])
+            
+            df_pol_hora = df_pol_hora.filter(lambda g: len(g) >= 9)
+            
+            df_pol = (
+                df_pol_hora.groupby(["Ano", "Mes", "Dia", "Hora", "Unidade"], as_index=False)
+                      .agg({"Valor": "mean"})
+            )
+    
+            df_pol['QAQC_INTERNO'] = None
+    
+            df_pol = df_pol.rename(columns={'Ano':'ANO',
+                                            'Mes':'MES',
+                                            'Dia':'DIA',
+                                            'Hora':'HORA',
+                                            'Unidade':'UNIDADE',
+                                            'Valor':'VALOR'})
+    
+            for col in ["ANO", "MES", "DIA", "HORA"]:
+                df_pol[col] = pd.to_numeric(df_pol[col], errors="coerce").astype("Int64")
+            
+            dict_pols_stat[estacao+'_'+pol].append(df_pol)
+
+    dict_pols_MT = {
+        'co':'CO',
+        'no2': 'NO2',
+        'so2': 'SO2',
+        'o3': 'O3',
+        'pm2p5':'MP25',
+        'pm10': 'MP10'
+    }
+
+    dict_formatado = {}
+    
+    for chave in dict_pols_stat.keys():
+        
+        lista_dfs = dict_pols_stat[chave]
+        
+        df = pd.concat(lista_dfs, ignore_index=True)
+    
+        df["DATETIME"] = pd.to_datetime(
+            df.apply(lambda r: f"{r.ANO}-{r.MES}-{r.DIA} {r.HORA}:00:00", axis=1)
+        )
+        df = df.set_index("DATETIME")
+    
+        df = df.sort_index()
+        
+        lista_horas = pd.date_range(
+            start=df.index.min(), 
+            end=df.index.max(), 
+            freq='H').strftime('%Y-%m-%d %H:%M:%S').tolist()
+        
+        if len(lista_horas) != len(df):
+            df = df.reindex(pd.DatetimeIndex(lista_horas))
+    
+        df['DATETIME'] = df.index
+    
+        df = df[['DATETIME','ANO','MES','DIA','HORA','VALOR','UNIDADE','QAQC_INTERNO']]
+        
+        dict_formatado[chave] = df
+        
+        primeiros_valores = {}
+    
+    for chave, df in dict_formatado.items():
+        
+        if ~df['VALOR'].isna().all() and (df['VALOR'] > 0).any(): 
+            
+            linha_valida = df[df["VALOR"].notna() & (df["VALOR"] > 0)].iloc[0]
+            primeiros_valores[chave] = linha_valida["DATETIME"]
+    
+    codigo_estacao_MT = {}
+    
+    for chave in primeiros_valores.keys():
+        
+        station = chave.split('_')[0]
+        data = primeiros_valores[chave]
+        
+        if station in codigo_estacao_MT:
+            if data <= codigo_estacao_MT[station]:
+                codigo_estacao_MT[station] = data
+        else:
+            codigo_estacao_MT[station] = data
+    
+    sorted_items = sorted(
+        codigo_estacao_MT.items(),
+        key=lambda x: (x[1], x[0])
+    )
+    
+    codigo_estacao_MT = {}
+    for i, (nome, ts) in enumerate(sorted_items, start=1):
+        codigo = f"MT{i:04d}"
+        codigo_estacao_MT[nome] = codigo
+        
+    for chave, df in dict_formatado.items():
+        
+        estacao = codigo_estacao_MT[chave.split('_')[0]]
+        
+        cod_pol = tabela_pols.loc[tabela_pols['POLUENTE'] == dict_pols_MT[chave.split('_')[-1]], 'COD_POLUENTE'].values[0]
+        
+        nome_pasta = tabela_pols.loc[tabela_pols['COD_POLUENTE'] == int(cod_pol), 'NOME_PASTA'].values[0]
+        
+        df.to_csv('/home/nobre/Notebooks/RQAR_2025_book/data/MQAr/'+nome_pasta+'/'+estacao+'IA'+str(cod_pol).zfill(3)+'.csv',index=False)
+
+    dict_stations_MT = {
+        'Sema':'CPA - SEMA - CBA',
+        'BEA CBA': 'Dom Aquino - BEA - CBA',
+        'CBM VG': 'Água Limpa - CBM - VG',
+        'Mae Bonifacia': 'Duque de Caxias - Pq Mãe Bonifácia - CBA',
+        'UFMT':'Boa Esperança - UFMT - CBA'
+    }
+    
+    df_ids = pd.DataFrame({
+        'ID_OEMA': codigo_estacao_MT.keys(),
+        'ID_MMA':list(codigo_estacao_MT.values())})
+    
+    
+    df_ids["ID_OEMA"] = df_ids["ID_OEMA"].replace(dict_stations_MT)
+    
+    return df_ids
+
+#%% Função para DF
+
+def fix_24h(row):
+    if isinstance(row, str) and row.startswith("24:"):
+        # substitui 24: por 00:
+        new_str = row.replace("24:", "00:", 1)
+        # converte para datetime
+        dt = pd.to_datetime(new_str, errors="coerce")
+        # adiciona 1 dia
+        if pd.notna(dt):
+            dt += timedelta(days=1)
+        return dt
+    else:
+        return pd.to_datetime(row, errors="coerce")
+
+def rectify_DF(path):
+
+    path = path + 'Monitor Report 2024_FINAL.xlsx'
+    
+    df = pd.read_excel(path)
+    
+    df.iloc[1] = df.iloc[1].ffill()
+    
+    poluentes = ['CO_ppm','NO2_ug/m3','NO_ug/m3','NOx_ug/m3','O3_ug/m3','PM10','PM25','PTS','SO2_ug/m3']
+    
+    dict_pols = {'CO_ppm':'CO',
+                 'NO2_ug/m3':'NO2',
+                 'NO_ug/m3':'NO',
+                 'NOx_ug/m3':'NOX',
+                 'O3_ug/m3':'O3',
+                 'PM10':'MP10',
+                 'PM25':'MP25',
+                 'PTS':'PTS',
+                 'SO2_ug/m3':'SO2'}
+    
+    df.columns = df.iloc[1]
+    
+    df = df.drop(index=[0, 1]).reset_index(drop=True)
+    
+    df = df.rename(columns={'Date Time':'DATETIME'})
+    
+    estacoes = set(df.columns[1:])
+    
+    dict_pols_stat = defaultdict(list)
+    
+    for estacao in estacoes:
+    
+        df_estacao = df[["DATETIME",estacao]]
+    
+        df_estacao.columns = [df_estacao.columns.tolist()[0]] + df_estacao.iloc[0, 1:].tolist()
+    
+        df_estacao = df_estacao.drop(index=[0]).reset_index(drop=True)
+    
+        for pol in poluentes:
+    
+            if pol in df_estacao.columns:
+                
+                df_pol = df_estacao[["DATETIME",pol]]
+    
+                df_pol['UNIDADE'] = df_pol[pol][0]
+    
+                df_pol = df_pol.drop(index=[0]).reset_index(drop=True)
+    
+                df_pol = df_pol[df_pol["DATETIME"].astype(str).str.contains(r"\d", na=False)].reset_index(drop=True)
+    
+                df_pol['DATETIME'] = df_pol['DATETIME'].apply(fix_24h)
+    
+                df_pol = df_pol.rename(columns={pol:'VALOR'})
+    
+                df_pol.index = df_pol['DATETIME']
+    
+                lista_horas = pd.date_range(
+                    start=df_pol.index.min(), 
+                    end=df_pol.index.max(), 
+                    freq='H').strftime('%Y-%m-%d %H:%M:%S').tolist()
+                
+                if len(lista_horas) != len(df_pol):
+                    df_pol = df_pol.reindex(pd.DatetimeIndex(lista_horas))
+                
+                df_pol['QAQC_INTERNO'] = None
+                
+                df_pol.insert(1, 'ANO', df_pol.index.year)
+                df_pol.insert(2, 'MES', df_pol.index.month)
+                df_pol.insert(3, 'DIA', df_pol.index.day)
+                df_pol.insert(4, 'HORA', df_pol.index.hour)
+    
+                pol = dict_pols[pol]
+    
+                df_pol['VALOR'] = pd.to_numeric(df_pol['VALOR'], errors='coerce')
+    
+                df_pol = df_pol[['DATETIME','ANO','MES','DIA','HORA','VALOR','UNIDADE','QAQC_INTERNO']] 
+    
+                dict_pols_stat[estacao+'_'+pol] = df_pol
+
+    primeiros_valores = {}
+
+    for chave, df in dict_pols_stat.items():  
+        
+        if ~df['VALOR'].isna().all() and (df['VALOR'] > 0).any(): 
+            
+            linha_valida = df[df["VALOR"].notna() & (df["VALOR"] > 0)].iloc[0]
+            primeiros_valores[chave] = linha_valida["DATETIME"]
+    
+    codigo_estacao_DF = {}
+    
+    for chave in primeiros_valores.keys():
+        
+        station = chave.split('_')[0]
+        data = primeiros_valores[chave]
+        
+        if station in codigo_estacao_DF:
+            if data <= codigo_estacao_DF[station]:
+                codigo_estacao_DF[station] = data
+        else:
+            codigo_estacao_DF[station] = data
+    
+    sorted_items = sorted(
+        codigo_estacao_DF.items(),
+        key=lambda x: (x[1], x[0])
+    )
+    
+    codigo_estacao_DF = {}
+    for i, (nome, ts) in enumerate(sorted_items, start=1):
+        codigo = f"DF{i:04d}"
+        codigo_estacao_DF[nome] = codigo
+        
+    for chave, df in dict_pols_stat.items():
+        
+        estacao = codigo_estacao_DF[chave.split('_')[0]]
+        
+        cod_pol = tabela_pols.loc[tabela_pols['POLUENTE'] == chave.split('_')[-1], 'COD_POLUENTE'].values[0]
+        
+        nome_pasta = tabela_pols.loc[tabela_pols['COD_POLUENTE'] == int(cod_pol), 'NOME_PASTA'].values[0]
+        
+        df.to_csv('/home/nobre/Notebooks/RQAR_2025_book/data/MQAr/'+nome_pasta+'/'+estacao+'RS'+str(cod_pol).zfill(3)+'.csv',index=False)
+    
+    dict_oema = {
+        'Estação CRAS FERCAL': 'Fercal CRAS',
+        'Estação Escola':	   'Fercal Escola'}
+    
+    df_ids = pd.DataFrame({
+        'ID_OEMA': codigo_estacao_DF.keys(),
+        'ID_MMA':list(codigo_estacao_DF.values())})
+    
+    df_ids['ID_OEMA'] = df_ids['ID_OEMA'].replace(dict_oema)
+    
+    return df_ids
+
 
 funcoes = {
     'MG': rectify_MG,
@@ -1460,10 +1960,16 @@ funcoes = {
     
     'SC': rectify_SC,
     'RS': rectify_RS,
-    'PR': rectify_PR
+    'PR': rectify_PR,
+    
+    'MA': rectify_MA,
+    'BA': rectify_BA,
+
+    'MT': rectify_MT,
+    'DF': rectify_DF
 }
 
-lista_estados = ['RJ','SP','SC','RS','ES']
+lista_estados = ['DF']
 
 tabela_ids = pd.read_csv('/home/nobre/Notebooks/RQAR_2025_book/data/Monitoramento_QAr_BR.csv')
 tabela_pols = pd.read_csv('/home/nobre/Notebooks/RQAR_2025_book/data/dicionarios/CODIGO_POLUENTES.csv')

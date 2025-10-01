@@ -55,30 +55,39 @@ DEFAULT_ROC_LIMITS_PER_HOUR = {
 
 # Negative tolerance (allows small negative values to pass due to noise/zero correction).
 DEFAULT_NEGATIVE_LIMITS = {
-    "O3": -2,
-    "CO": -0.2,
-    "NO2": -2,
-    "NOx": -2,
-    "SO2": -2,
-    "PM25": -2,
-    "PM10": -2,
+    "O3": 0,
+    "CO": 0,
+    "NO2": 0,
+    "NOx": 0,
+    "SO2": 0,
+    "PM25": 0,
+    "PM10": 0,
 }
 
 # Flatline: N consecutive identical (within resolution) values
 DEFAULT_FLATLINE_N = 5
+
 # Instrument resolution tolerance for "identical" (absolute diff <= tol)
 DEFAULT_RESOLUTION_TOL = {
-    "O3": 1.0,
-    "CO": 0.1,
-    "NO2": 1.0,
-    "NOx": 1.0,
-    "SO2": 1.0,
-    "PM25": 0.5,
-    "PM10": 1.0,
+    "O3": 0,
+    "CO": 0,
+    "NO2": 0,
+    "NOx": 0,
+    "SO2": 0,
+    "PM25": 0,
+    "PM10": 0,
+    # "O3": 1.0,
+    # "CO": 0.1,
+    # "NO2": 1.0,
+    # "NOx": 1.0,
+    # "SO2": 1.0,
+    # "PM25": 0.5,
+    # "PM10": 1.0,
 }
 
 # Step-change detector: compares window means before/after a point
 DEFAULT_STEP_WINDOW = 3  # samples on each side
+
 DEFAULT_STEP_LIMITS = {
     "O3": 80,
     "CO": 6,
@@ -98,27 +107,54 @@ NOX_TOL = 2.0 # ppb tolerance
 RECOG_POLLUTANTS = ["O3", "CO", "NO2", "NOx", "SO2", "PM25", "PM10"]
 
 
-def parse_range_arg(arg_list):
-    """Parse --range args like O3=0:500 NO2=0:1000 into dict."""
-    out = {}
-    for item in arg_list or []:
-        if "=" not in item or ":" not in item:
-            raise ValueError(f"Invalid --range '{item}', use NAME=min:max")
-        name, span = item.split("=", 1)
-        mn, mx = span.split(":", 1)
-        out[name] = (float(mn), float(mx))
-    return out
+def tratar_dados(df):
+    """
+    Recebe DataFrame cru, cria coluna datetime, converte e limpa valores.
+    Retorna DataFrame com índice datetime e coluna 'Valor' em float, valores < 0 viram NaN.
 
+    Parameters
+    ----------
+    df : TYPE
+        DF contendo dados brutos com colunas, sem coluna de datetime .
 
-def parse_scalar_arg(arg_list, cast=float):
-    """Parse args like O3=60 into dict of scalars."""
-    out = {}
-    for item in arg_list or []:
-        if "=" not in item:
-            raise ValueError(f"Invalid arg '{item}', use NAME=value")
-        name, val = item.split("=", 1)
-        out[name] = cast(val)
-    return out
+    Returns
+    -------
+    df : TYPE
+        DataFrame tratado com indice de datetime e valores numéricos prontos para análise.
+
+    """
+    
+    df['DATETIME'] = pd.to_datetime(df['DATETIME'])
+
+    
+    # Substitui , por . 
+    df['VALOR'] = df['VALOR'].replace(',', '.', regex=True).copy()
+    # Converte para float, forçando erro para NaN
+    df['VALOR'] = pd.to_numeric(df['VALOR'], errors='coerce').copy()
+    # Transforma valores negativos em NaN
+    df.loc[df['VALOR'] < 0, 'VALOR'] = np.nan
+
+    time_range = pd.date_range(df['DATETIME'].min(), df['DATETIME'].max(), freq='h').to_series(name='DATETIME')
+    df = pd.merge(time_range, df,how='left')
+    #df = df.set_index('datetime', drop=False)
+    df['DATETIME'] = pd.to_datetime(df['DATETIME']).copy()
+    
+    for ii, val in enumerate(df['VALOR']):
+        print('scanning dataset')
+        if not isinstance(val, float):
+            if val.contains(',', case=False, na=False):
+                if val.contains('.', case=False, na=False):
+                    val = val.replace('.','')
+                    val = val.replace(',','.')
+                else:
+                    val = val.replace(',','.')
+                
+            df['VALOR'][ii] = val
+        
+    df['VALOR'][df['VALOR']<0] = np.nan
+
+    
+    return df
 
 
 def autodetect_dt_hours(ts: pd.Series) -> float:
@@ -311,8 +347,8 @@ def main(in_path, out_path, summary_json, pollutant):
         raise FileNotFoundError(f"Input file not found: {in_path}")
 
     df = pd.read_csv(in_path)
+    df = tratar_dados(df)
     df.rename(columns={'VALOR': pollutant}, inplace=True)
-
     # Pollutants to run
     # if pollutants:
     #     pollutants = [p for p in pollutants if p in RECOG_POLLUTANTS]
@@ -341,7 +377,7 @@ def main(in_path, out_path, summary_json, pollutant):
     qc_df, summary = run_qc(
         df=df,
         time_col='DATETIME',
-        pollutants=pollutant,
+        pollutants=[pollutant],
         range_limits=range_limits,
         roc_limits_per_hour=roc_limits,
         negative_limits=neg_limits,
@@ -368,5 +404,17 @@ def main(in_path, out_path, summary_json, pollutant):
     for p in summary:
         total = sum(summary[p].values()) if summary[p] else 0
         print(f"  {p}: {summary[p]} (total flagged points: {total})")
+    
+    return qc_df
 
+in_path = r"C:\Users\Usuario\Downloads\ES0001RA001.csv"
+out_path = r"C:\Users\Usuario\Downloads\BA0008RA001_qc.csv"
+pollutant = 'PM10'
+qc_df = main(in_path, out_path, None, pollutant)
 
+import matplotlib.pyplot as plt 
+
+fig, ax = plt.subplots()
+ax.plot(qc_df.DATETIME,qc_df['PM10'],c='black')
+
+ax.scatter(qc_df[qc_df['PM10_QC_PASS']==False].DATETIME,qc_df[qc_df['PM10_QC_PASS']==False].PM10,c='red')

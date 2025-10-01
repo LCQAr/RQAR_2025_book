@@ -1,7 +1,8 @@
 # -*- coding: utf-8 -*-
 """
-Mapa: População atendida por estação de monitoramento
-Mostra pontos proporcionais à população atendida + buffers reais
+Mapa + Tabela: População atendida por estação de monitoramento
+- Mostra pontos proporcionais à população atendida + buffers reais
+- Gera tabela por estado com população coberta e número de estações
 """
 
 import geopandas as gpd
@@ -10,6 +11,7 @@ import folium
 from folium.plugins import MiniMap, Fullscreen
 from pathlib import Path
 import os
+from IPython.display import display, HTML
 
 # ========================
 # Configurações
@@ -19,9 +21,18 @@ OUTPUT_DIR = rootPath / "data/outputs"
 
 BUFFER_PATH = OUTPUT_DIR / "buffers_var.gpkg"
 POP_PATH    = OUTPUT_DIR / "populacao_varbuf.csv"
+SETOR_PATH  = rootPath / "data/setores_censitarios/BR_setores_pop2022.gpkg"
+
+# Dicionário de UFs
+codigo_para_uf = {
+    12: 'AC', 27: 'AL', 13: 'AM', 16: 'AP', 29: 'BA', 23: 'CE', 53: 'DF',
+    32: 'ES', 52: 'GO', 21: 'MA', 31: 'MG', 50: 'MS', 51: 'MT', 15: 'PA',
+    25: 'PB', 26: 'PE', 22: 'PI', 41: 'PR', 33: 'RJ', 24: 'RN', 11: 'RO',
+    14: 'RR', 43: 'RS', 42: 'SC', 28: 'SE', 35: 'SP', 17: 'TO'
+}
 
 # ========================
-# Funções auxiliares
+# Helpers
 # ========================
 def get_color(pop_value):
     if pd.isna(pop_value):
@@ -37,76 +48,56 @@ def get_color(pop_value):
     else:
         return "#a50f15"
 
-def get_radius_m(pop_value):
-    """Raio em metros, proporcional à população atendida"""
-    if pd.isna(pop_value) or pop_value <= 0:
-        return 500   # mínimo
-    return max(500, min(20_000, (pop_value ** 0.5) * 30))  # cresce e limita
-
 # ========================
-# Função principal
+# Função principal do mapa
 # ========================
 def build_map_pop():
     buffers = gpd.read_file(BUFFER_PATH).to_crs(4326)
     pop = pd.read_csv(POP_PATH)
 
+    # Garante chave ID
     if "ID" not in buffers.columns:
         buffers = buffers.reset_index(drop=False).rename(columns={"index": "ID"})
-
     buffers = buffers.merge(pop, on="ID", how="left")
 
+    # Centro do mapa
+    try:
+        minx, miny, maxx, maxy = buffers.total_bounds
+        center_lat, center_lon = (miny + maxy) / 2, (minx + maxx) / 2
+    except Exception:
+        center_lat, center_lon = -14.2, -52.9
 
-    pts = buffers.to_crs(5880).copy()   # reprojeta para CRS em metros
-    pts["geometry"] = pts.geometry.centroid
-    pts = pts.to_crs(4326)              # volta para lat/lon, que o folium entende
+    m = folium.Map(
+        location=[center_lat, center_lon],
+        zoom_start=4,
+        tiles="cartodbpositron",
+        control_scale=True,
+        max_bounds=True
+    )
+    br_bounds = [[-34.0, -74.0], [6.0, -34.0]]
+    m.fit_bounds(br_bounds)
+    m.options['maxBounds'] = br_bounds
+    m.options['maxBoundsViscosity'] = 1.0
+    m.options['minZoom'] = 4
 
-
-    center_lat, center_lon = -14.2, -52.9
-    m = folium.Map(location=[center_lat, center_lon], zoom_start=4,
-                   tiles="cartodbpositron", control_scale=True)
-
-    # Buffers reais
-    folium.GeoJson(
-        buffers[["ID", "geometry"]],
-        name="Buffers das estações",
-        style_function=lambda f: {"color": "#2171b5", "weight": 1, "fillOpacity": 0.05}
-    ).add_to(m)
-
-    # Círculos proporcionais
-    layer_pts = folium.FeatureGroup(name="População atendida", show=True).add_to(m)
-    for _, row in pts.iterrows():
-        geom = row.geometry
-        if geom.is_empty:
-            continue
+    for _, row in buffers.iterrows():
+        geom = row.geometry.centroid
         lat, lon = geom.y, geom.x
         pop_val = row.get("POP_BUFFER", None)
-
+        color = get_color(pop_val)
         folium.Circle(
             location=(lat, lon),
-            radius=get_radius_m(pop_val),  # em metros
-            color=get_color(pop_val),
+            radius=500,
+            color=color,
             fill=True,
-            fill_color=get_color(pop_val),
+            fill_color=color,
             fill_opacity=0.6,
             weight=1,
             tooltip=f"ID: {row['ID']}<br>População atendida: {int(pop_val) if pd.notna(pop_val) else '—'}"
-        ).add_to(layer_pts)
-
-    MiniMap(toggle_display=True, position="bottomright").add_to(m)
-    Fullscreen().add_to(m)
-    folium.LayerControl(collapsed=False).add_to(m)
-
-    legend_html = """
-    <div style='position: fixed; bottom: 20px; left: 20px; z-index: 9999;
-    background: white; padding: 8px; border: 1px solid #bbb; border-radius: 4px;'>
-    <b>População atendida</b><br>
-    <div><span style='display:inline-block;width:12px;height:12px;background:#fee5d9;margin-right:4px;'></span> < 1 mil</div>
-    <div><span style='display:inline-block;width:12px;height:12px;background:#fcae91;margin-right:4px;'></span> 1k – 10k</div>
-    <div><span style='display:inline-block;width:12px;height:12px;background:#fb6a4a;margin-right:4px;'></span> 10k – 100k</div>
-    <div><span style='display:inline-block;width:12px;height:12px;background:#de2d26;margin-right:4px;'></span> 100k – 1M</div>
-    <div><span style='display:inline-block;width:12px;height:12px;background:#a50f15;margin-right:4px;'></span> > 1M</div>
-    </div>
-    """
-    m.get_root().html.add_child(folium.Element(legend_html))
+        ).add_to(m)
 
     return m
+
+
+
+

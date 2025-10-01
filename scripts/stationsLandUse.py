@@ -116,12 +116,25 @@ def cutMapbiomas(inputFolder,gdf,year,prefix,pixelSize):
                     gdf.loc[index,gdf.columns[gdf.columns==str(val)]] = counts[ii]
     gdf = majorLandUse(gdf,inputFolder)
     #gdf.to_csv(outfolder+'/stationsLandUse.csv') 
+
+    gdf = gdf.drop(columns=["geometry"])
+    gdf.to_csv(os.path.join(outfolder, f"{prefix}stationsLandUse.csv"), index=False)
+    
+    # só remove 'buffer' se existir
+    if "buffer" in gdf.columns:
+        gdf = gdf.drop(columns=["buffer"])
+    
+    gdf.to_csv(os.path.join(outfolder, f"{prefix}stationsLandUseNoGeometry.csv"), index=False)
+    
+    return gdf
+
+'''
     gdf = gdf.drop(columns=['geometry'])         
     gdf.to_csv(outfolder+'/'+prefix+'stationsLandUse.csv',)
     gdf = gdf.drop(columns=['buffer']) 
     gdf.to_csv(outfolder+'/'+prefix+'stationsLandUseNoGeometry.csv') 
     return gdf
-
+'''
 def cutMapbiomasSimple(inputFolder, gdf,year,pixelSize):
     """
     Esta função é utilizada para cortar o arquivo do Mapbiomas para o domínio 

@@ -425,6 +425,8 @@ def table05():
     aqmData = aqmData[aqmData['STATUS']=='Ativa']
     
     aqmData['ID_OEMA'] = aqmData['ID_OEMA'].str.replace(' ', '') 
+    aqmData['CATEGORIA'] = aqmData['CATEGORIA'].str.replace(' ', '') 
+    #aqmData['CATEGORIA'] = aqmData['CATEGORIA'].str.replace(' ', '') 
     
     # Selecionando apenas Estado e Fonte e removendo redundâncias
     aqmData = aqmData.drop_duplicates(subset=['ID_OEMA'])
@@ -886,6 +888,7 @@ def flagTable(columnsSelector):
     aqmData = pd.read_csv(rootPath+'/data/Monitoramento_QAr_BR.csv')
     aqmData['ID_OEMA'] = aqmData['ID_OEMA'].str.replace(' ', '') 
     aqmData['POLUENTE'] = aqmData['POLUENTE'].str.upper()
+    aqmData['CATEGORIA'] = aqmData['CATEGORIA'].str.replace(' ', '') 
 
     # Remove colunas com todos valores iguais a NaN
     #aqmData = aqmData.dropna(axis=1, how='all')

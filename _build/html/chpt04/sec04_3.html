@@ -62,7 +62,7 @@
     <script>DOCUMENTATION_OPTIONS.pagename = 'chpt04/sec04_3';</script>
     <link rel="index" title="Índice" href="../genindex.html" />
     <link rel="search" title="Buscar" href="../search.html" />
-    <link rel="next" title="4.4. Designação de áreas de atendimento e não atendimento dos padrões de qualidade do ar" href="sec04_4.html" />
+    <link rel="next" title="4.5. Interface com saúde" href="sec04_4.html" />
     <link rel="prev" title="4.2. Análise de tendências e sazonalidade da qualidade do ar no Brasil" href="sec04_2.html" />
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="docsearch:language" content="pt-BR"/>
@@ -226,9 +226,8 @@
 </details></li>
 <li class="toctree-l2"><a class="reference internal" href="sec04_2.html">4.2. Análise de tendências e sazonalidade da qualidade do ar no Brasil</a></li>
 <li class="toctree-l2 current active"><a class="current reference internal" href="#">4.3.	Violações dos padrões de qualidade do ar no Brasil</a></li>
-<li class="toctree-l2"><a class="reference internal" href="sec04_4.html">4.4.	Designação de áreas de atendimento e não atendimento dos padrões de qualidade do ar</a></li>
-<li class="toctree-l2"><a class="reference internal" href="sec04_5.html">4.5.	Interface com saúde</a></li>
-<li class="toctree-l2"><a class="reference internal" href="sec04_6.html">4.6.	Síntese das observações da qualidade do ar por região</a></li>
+<li class="toctree-l2"><a class="reference internal" href="sec04_4.html">4.5.	Interface com saúde</a></li>
+<li class="toctree-l2"><a class="reference internal" href="sec04_5.html">4.6.	Síntese das observações da qualidade do ar por região</a></li>
 </ul>
 </details></li>
 <li class="toctree-l1"><a class="reference internal" href="../chpt05/chpt05.html">5.	Perspectivas de ampliação da rede e medidas de gestão das fontes de poluição</a></li>
@@ -547,14 +546,14 @@ select, input { margin-right: 14px; }
 <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
 </head>
 <body>
-<div id="mapDiv" style="width:90%; height:360px; margin-bottom:12px;"></div>
+<div id="mapDiv" style="width:100%; height:360px; margin-bottom:12px;"></div>
 <div>
   <label>Estação:</label>
   <select id="stationSelect" disabled></select> <!-- agora é só display -->
 <p><label>Poluente:</label>
-<select id="pollutantSelect"></select></p>
+<select id="pollutantSelect" ></select></p>
 <p><label>Tempo de média:</label>
-<select id="aveTimeSelect"></select>
+<select id="aveTimeSelect" ></select>
 <br>
 <br>
 <label>Início:</label>
@@ -563,17 +562,17 @@ select, input { margin-right: 14px; }
 <input type="datetime-local" id="endDate">
 <br>
 <br>
-<button id="loadDataBtn" class="btn">Load Data</button>
-<button id="plotBtn" class="btn" disabled>Plot Data</button>
+<button id="loadDataBtn" class="btn">Carrega dados</button>
+<button id="plotBtn" class="btn" disabled>Plot</button>
 <button id="downloadBtn" class="btn" disabled>Download CSV</button></p>
 </div>
 <div id="plotDiv" style="width:100%; height:600px;"></div>
-<div id="statsTable" style="margin-top:20px;"></div>
+<div id="statsTable" style="width:80%; margin-top:20px;"></div>
 <script>
 /* ========== Config ========== */
-const DATA_FOLDER = 'https://lcqar.ufsc.br/files/RQAr_2025/MQAr';
-const METADATA_CSV = 'https://lcqar.ufsc.br/files/RQAr_2025/Monitoramento_QAr_BR.csv';
-const FASES_CSV = 'https://lcqar.ufsc.br/files/RQAr_2025/fases_CONAMA506.csv';
+const DATA_FOLDER = 'https://hoinaski.prof.ufsc.br/files/RQAr_2025/MQAr';
+const METADATA_CSV = 'https://hoinaski.prof.ufsc.br/files/RQAr_2025/Monitoramento_QAr_BR.csv';
+const FASES_CSV = 'https://hoinaski.prof.ufsc.br/files/RQAr_2025/fases_CONAMA506.csv';
 
 /* ========== Estado ========== */
 let metadata = [];
@@ -659,7 +658,7 @@ function plotStationsMap() {
   };
 
   const layout = {
-    mapbox: { style: 'open-street-map', center: { lat: lats[0], lon: lons[0] }, zoom: 5 },
+    mapbox: { style:  'open-street-map', center: { lat: lats[0], lon: lons[0] }, zoom: 2 },
     margin: { t: 0, b: 0, l: 0, r: 0 }
   };
 
@@ -1066,15 +1065,27 @@ function buildExceedanceTable(fasesForPol, numericVals){
   }
 
   let html = '<table class="stats-table">';
-  html += "<thead><tr><th>Padrão / Fase</th><th>Limite<br> (µg/m³)</th><th>Excedências</th><th>%<br> Excedência</th></tr></thead><tbody>";
+  html += "<thead><tr><th>Padrão / Fase</th><th>Limite<br>(µg/m³)</th><th>Excedências</th><th>%<br>Excedência</th></tr></thead><tbody>";
   const n = numericVals.length;
 
   fasesForPol.forEach(r => {
-    const y1 = parseFloat(String(r.y1||'').replace(',','.'));
-    if(Number.isNaN(y1)) return;
-    const exceedCount = numericVals.filter(v => v > y1).length;
-    const perc = ((exceedCount / n) * 100).toFixed(1);
-    html += `<tr style="background:${(r.color||'transparent')}20"><td>${r.phase||'-'}</td><td>${y1}</td><td>${exceedCount}</td><td>${perc}%</td></tr>`;
+    const y1 = parseFloat(String(r.y1 || '').replace(',', '.'));
+    const totalCount = numericVals.length;
+    const validVals = numericVals.filter(v => v != null && !isNaN(v));
+    const missingVals = totalCount - validVals.length;
+    const missingPerc = ((missingVals / totalCount) * 100).toFixed(1);
+
+    if (Number.isNaN(y1)) return;
+
+    const exceedCount = validVals.filter(v => v > y1).length;
+    const perc = ((exceedCount / totalCount) * 100).toFixed(1);
+
+    html += `<tr style="background:${(r.color || 'transparent')}20">
+      <td>${r.phase || '-'}</td>
+      <td>${y1}</td>
+      <td>${exceedCount}</td>
+      <td>${perc}%</td>
+    </tr>`;
   });
 
   html += "</tbody></table>";
@@ -1169,7 +1180,7 @@ function downloadFilteredCSV(){
        title="next page">
       <div class="prev-next-info">
         <p class="prev-next-subtitle">próximo</p>
-        <p class="prev-next-title">4.4.	Designação de áreas de atendimento e não atendimento dos padrões de qualidade do ar</p>
+        <p class="prev-next-title">4.5.	Interface com saúde</p>
       </div>
       <i class="fa-solid fa-angle-right"></i>
     </a>
