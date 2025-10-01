@@ -5,7 +5,6 @@ media
 *.gpkg
 *.parquet
 *.shp
-*.gpkg 
 scripts/rep_espacial/01_preprocessamento/inputs/
 scripts/rep_espacial/01_preprocessamento/outputs/
 scripts/rep_espacial/02_distancia_vias_e_ind/inputs/
