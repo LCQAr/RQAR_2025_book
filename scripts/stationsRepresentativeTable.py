@@ -1,24 +1,48 @@
+# -*- coding: utf-8 -*-
 import geopandas as gpd
 import pandas as pd
 import matplotlib.pyplot as plt
 from pathlib import Path
 import os
 import matplotlib.image as mpimg
-import matplotlib.transforms as transforms
 from matplotlib.offsetbox import OffsetImage, AnnotationBbox
 
 
-def plot_figura8(rootPath=None, save=False):
+def plot_figura8(rootPath=None, save=False, force_rebuild=False):
     """
     Figura 8: Percentual de cobertura das redes de monitoramento da qualidade do ar (ativas)
     nas UFs brasileiras considerando área urbana e rural, com bandeiras no eixo Y.
+
+    Parâmetros
+    ----------
+    rootPath : str | Path
+        Caminho raiz do projeto.
+    save : bool
+        Se True, salva a figura em _static/figura8.png.
+    force_rebuild : bool
+        Se True, recalcula o gráfico mesmo que a imagem já exista.
     """
 
     rootPath = Path(rootPath or os.path.dirname(os.getcwd()))
+    static_dir = rootPath / "_static"
+    static_dir.mkdir(exist_ok=True)
+    img_path = static_dir / "representatividade/figura8.png"
+
+    # --- Se a imagem já existe e o usuário não pediu para recalcular ---
+    if img_path.exists() and not force_rebuild:
+        #print(f"✅ Carregando imagem existente: {img_path.name}")
+        img = plt.imread(img_path)
+        fig, ax = plt.subplots(figsize=(6, 8))
+        ax.imshow(img)
+        ax.axis("off")
+        plt.tight_layout()
+        return ax
+
+    #print("⚙️ Gerando nova figura...")
 
     stations_file = rootPath / "data/rep_espacial/outputs/estacoes_completa.gpkg"
     setores_file  = rootPath / "data/setores_censitarios/BR_setores_pop2022.gpkg"
-    flags_dir     = rootPath / "_static/bandeiras"  # ajuste se a pasta for diferente
+    flags_dir     = static_dir / "bandeiras"
     uf_to_sigla = {
         "Acre": "AC", "Alagoas": "AL", "Amapá": "AP", "Amazonas": "AM",
         "Bahia": "BA", "Ceará": "CE", "Distrito Federal": "DF", "Espírito Santo": "ES",
@@ -53,7 +77,6 @@ def plot_figura8(rootPath=None, save=False):
         .rename(columns={"area_km2": "area_tot_km2"})
     )
 
-
     # Interseção buffers × setores
     inter = gpd.overlay(setores, st_buff, how="intersection")
     inter = inter.to_crs(3857)
@@ -72,16 +95,10 @@ def plot_figura8(rootPath=None, save=False):
     # === Gráfico ===
     cores = {"Urbana": "#64B5F6", "Rural": "#A8E6CF"}
     ax = df_pivot.plot(
-        kind="barh", stacked=True, figsize=(9, 12),
-        color=cores
+        kind="barh", stacked=True, figsize=(9, 12), color=cores
     )
 
     plt.xlabel("Percentual da área do estado coberta por estações (%)")
-#    plt.ylabel("Unidade da Federação (UF)")
-#    plt.title(
-#        "Figura 8: Percentual de cobertura das redes de monitoramento da qualidade do ar (ativas)\n"
-#        "nas UFs brasileiras considerando a área rural e urbana"
-#    )
     plt.legend(title="Área")
     plt.tight_layout()
 
@@ -98,20 +115,28 @@ def plot_figura8(rootPath=None, save=False):
                 imagebox = OffsetImage(img, zoom=0.08)
                 ab = AnnotationBbox(
                     imagebox,
-                    (-0.02, y),  # um pouco antes do eixo y
+                    (-0.02, y),
                     xycoords=(ax.get_yaxis_transform()), 
                     frameon=False,
                     box_alignment=(1, 0.5)
                 )
                 ax.add_artist(ab)
 
-    
     # remover labels de texto (só bandeiras ficam)
     ax.set_yticklabels([""] * len(labels))
+    
+    # 🔹 remove o título do eixo Y e o próprio eixo
+    ax.set_ylabel("")
+    ax.yaxis.set_ticks_position('none')  # remove os traços do eixo
+    
+    # 🔹 opcional: remove o contorno do eixo
+    for spine in ["left", "right", "top"]:
+        ax.spines[spine].set_visible(False)
 
 
-
+    # --- Salvar se solicitado ---
+    if save:
+        plt.savefig(img_path, dpi=300, bbox_inches="tight")
+        #print(f"💾 Figura salva em: {img_path}")
 
     return ax
-
-

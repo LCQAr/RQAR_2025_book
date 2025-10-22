@@ -59,6 +59,7 @@ columns_names = {
     'Referencia':   'Referência',
     'REFERENCIA':   'Referência',
     'REFERÊNCIA':   'Referência',
+    'N':   'Não identificada',
     
     
 }
@@ -225,11 +226,12 @@ def spatial_rede_monitoramento(columnRef,columnsToltip,cmap):
     #print(gdf.Categoria.unique().shape[0])
     if (gdf.Categoria.unique().shape[0]==3) & (columnRef=='Categoria'):
         # Original colormap
-        cmap = ListedColormap(["orange", "green"])
+        gdf.loc[gdf.Categoria=='N', 'Categoria'] = 'Não identificada'
+        cmap = ListedColormap(["orange",'gray', "green"])
         # Get the list of colors from the existing colormap
         colors = cmap.colors
         #cmap = cmap.append('gray')
-        colors.insert(0, 'gray')
+        #colors.insert(0, 'gray')
         cmap = ListedColormap(colors)
         
     # Extrai o centroide dos locais onde existe monitoramento para centralizar o mapa

@@ -15,10 +15,52 @@ from datetime import datetime, timedelta
 import re
 import numpy as np
 from pathlib import Path
+import glob
+import csv
+
 
 os.chdir('/home/nobre/Notebooks/RQAR_2025_book/')
 
-#%% Função para São Paulo
+def create_QAQCMMA_VALOR(df,pol):
+
+    df = df.rename(columns={'VALOR':'VALOR_ORIGINAL'})
+
+    flags_invalidos = ['!', 'IF', 'IO', 'IC', 'I%', 'IL', 'IE', 'IS', 'IU', 'IM', 'IP', 'ID', 'IT', 'IR', 
+                       'Fora da Faixa de Medição', 'Disabilitada Temporariamente', 'Inválido', 
+                       'Insuficientes', 'Inexistente']
+
+    df['QAQC_INTERNO'] = ~df['QAQC_INTERNO'].isin(flags_invalidos)
+    
+    DEFAULT_RANGE_LIMITS = {
+        "O3": (0, 500),
+        "CO": (0, 50),
+        "NO2": (0, 1000),
+        "NOX": (0, 2000),
+        "SO2": (0, 1000),
+        "MP25": (0, 1000),
+        "MP10": (0, 2000),
+    }
+
+    df['QAQC_MMA'] = df['QAQC_INTERNO']
+
+    if pol in list(DEFAULT_RANGE_LIMITS.keys()):
+        lim_min = DEFAULT_RANGE_LIMITS[pol][0]
+        lim_max = DEFAULT_RANGE_LIMITS[pol][1]
+    else:
+        lim_min = 0
+        lim_max = np.inf
+
+    df['VALOR'] = df['VALOR_ORIGINAL']
+
+    df['VALOR'] = pd.to_numeric(df['VALOR'], errors='coerce')
+    
+    df.loc[df['QAQC_MMA'] & (df['VALOR'].isna() | (df['VALOR'] <= lim_min) | (df['VALOR'] >= lim_max)), 'QAQC_MMA'] = False
+    
+    df.loc[~df['QAQC_MMA'], 'VALOR'] = np.nan
+    
+    df = df[['DATETIME', 'ANO', 'MES', 'DIA', 'HORA', 'VALOR', 'VALOR_ORIGINAL', 'UNIDADE', 'QAQC_INTERNO', 'QAQC_MMA']]
+
+    return df
 
 def pol_to_station(df_ids):
 
@@ -58,7 +100,7 @@ def create_df_estacao(uf,df_ids):
     
     else:
 
-        colunas = ['ID_OEMA', 'UF', 'ID_MMA', 'COD_UF_IBGE', 'CIDADE', 'CD_MUN',
+        colunas = ['ID_OEMA', 'UF', 'ID_MMA', 'ID_MMA_COMPLETO', 'COD_UF_IBGE', 'CIDADE', 'CD_MUN',
                    'PROPRIETARIO', 'PROP_ENTIDADE', 'OPERADOR', 'OP_ENTIDADE', 'LATITUDE',
                    'LONGITUDE', 'MOBILIDADE', 'REALOCACAO', 'MARCA', 'CATEGORIA',
                    'FUNCIONAMENTO', 'METODO', 'FINALIDADE', 'POLUENTE',
@@ -77,15 +119,20 @@ def create_df_estacao(uf,df_ids):
     df_estacao.loc[:, "UF"] = uf
     
     df_estacao.to_csv('/home/nobre/Notebooks/RQAR_2025_book/data/DADOS_ESTACOES/'+uf+'_estacoes.csv', index=False)
-    
+
 def ug_to_ppm(df):
 
-    df.loc[df["UNIDADE"] != "ppm", "VALOR"] *= 868.26/10**6
+    df.loc[df["UNIDADE"] == "ug/m3", "VALOR"] = 868.26/10*6
+    df.loc[df["UNIDADE"] == "Âµg/mÂ", "VALOR"] = 868.26/10*6
+    df.loc[df["UNIDADE"] == "µg/m³", "VALOR"] = 868.26/10*6
+    df.loc[df["UNIDADE"] == "µg/m3", "VALOR"] = 868.26/10*6
+    df.loc[df["UNIDADE"] == "µg/m³", "VALOR"] = 868.26/10*6
+    df.loc[df["UNIDADE"] == "ppb", "VALOR"] *= 1/1000
+    
 
     df['UNIDADE'] = "ppm"
-
-    return df
-
+    return df 
+    
 def ajustar_data_hora(d, h):
     if h == '24:00':
         # converte para meia-noite do dia seguinte
@@ -99,7 +146,8 @@ def parse_valor(x):
         x = x.replace('.', '')      # remove separador de milhar
         x = x.replace(',', '.')     # troca vírgula por ponto decimal
     return float(x)
-
+    
+#%% Função para São Paulo
 def rectify_SP(path):
     
     path = path + 'dados_coletados/'
@@ -194,8 +242,10 @@ def rectify_SP(path):
                     cols = cols[:-2] + cols[-2:][::-1]
                     
                     df_pol = df_pol[cols]
+
+                    df_pol = create_QAQCMMA_VALOR(df_pol,nome_pasta)
                     
-                    df_pol.to_csv('/home/nobre/Notebooks/RQAR_2025_book/data/MQAr_teste/'+nome_pasta+'/'+cod_estacao+i_ou_r+s_ou_a+cod_poluente+'.csv', index=False)
+                    df_pol.to_csv('/home/nobre/Notebooks/RQAR_2025_book/data/MQAr/'+nome_pasta+'/'+cod_estacao+i_ou_r+s_ou_a+cod_poluente+'.csv', index=False)
                 
                 else:
                     
@@ -339,6 +389,24 @@ def rectify_RJ(path):
     df_ids = pd.DataFrame(list(stations_dict_automaticas.items()), columns=["ID_MMA", "ID_OEMA"])
     
     df_ids["ID_MMA"] = "RJ" + df_ids["ID_MMA"].astype(str).str.zfill(4)
+    
+    for pol in tabela_pols['NOME_PASTA'].unique():
+
+        caminho = os.getcwd()+'/data/MQAr/' + pol + '/'
+        
+        if os.path.isdir(caminho) and os.listdir(caminho):
+            
+            arquivos = os.listdir(caminho)
+        
+            for estacao in arquivos:
+    
+                if estacao.startswith('RJ'):
+    
+                    df = pd.read_csv(caminho+estacao)
+
+                    df = create_QAQCMMA_VALOR(df,pol)
+
+                    df.to_csv('/home/nobre/Notebooks/RQAR_2025_book/data/MQAr/'+pol+'/'+estacao, index=False)
     
     return df_ids
     
@@ -570,9 +638,9 @@ def rectify_ES(path):
                      'Guanabara': 'ES0014', 
                      'Anchieta Centro': 'ES0015', 
                      'Cariacica Vila Capixaba': 'ES0002', 
-                     'Linhares2': 'ES0016', 
-                     'Linhares1': 'ES0017', 
-                     'Ponta Formosa': 'ES0018'}
+                     'Linhares1':'ES0018',
+                     'Linhares2':'ES0017',
+                     'Ponta Formosa': 'ES0016'}
     
     for chave in dict_stations.keys():
         
@@ -595,8 +663,10 @@ def rectify_ES(path):
         cod_estacao = codigo_estacao_ES[station]
         
         nome_pasta = tabela_pols.loc[tabela_pols['COD_POLUENTE'] == int(cod_poluente), 'NOME_PASTA'].values[0]
+
+        df_pol_stat = create_QAQCMMA_VALOR(df_pol_stat,nome_pasta)
         
-        df_pol_stat.to_csv('/home/nobre/Notebooks/RQAR_2025_book/data/MQAr_teste/'+nome_pasta+'/'+cod_estacao+i_ou_r+s_ou_a+cod_poluente+'.csv', index=False)
+        df_pol_stat.to_csv('/home/nobre/Notebooks/RQAR_2025_book/data/MQAr/'+nome_pasta+'/'+cod_estacao+i_ou_r+s_ou_a+cod_poluente+'.csv', index=False)
 
     path = '/home/nobre/Notebooks/RQAR_2025_book/data/DADOS_BRUTOS/ES/coletados_norte/Linhares/'
     
@@ -709,8 +779,10 @@ def rectify_ES(path):
         cod_estacao = codigo_estacao_ES[station]
         
         nome_pasta = tabela_pols.loc[tabela_pols['COD_POLUENTE'] == int(cod_poluente), 'NOME_PASTA'].values[0]
+
+        df_pol_stat = create_QAQCMMA_VALOR(df_pol_stat,nome_pasta)
         
-        df_pol_stat.to_csv('/home/nobre/Notebooks/RQAR_2025_book/data/MQAr_teste/'+nome_pasta+'/'+cod_estacao+i_ou_r+s_ou_a+cod_poluente+'.csv', index=False)
+        df_pol_stat.to_csv('/home/nobre/Notebooks/RQAR_2025_book/data/MQAr/'+nome_pasta+'/'+cod_estacao+i_ou_r+s_ou_a+cod_poluente+'.csv', index=False)
 
     df_ids = pd.DataFrame({
         'ID_OEMA': ['EMQAR - RGV1 - Laranjeiras','EMQAR - RGV2 - Carapina',
@@ -723,7 +795,7 @@ def rectify_ES(path):
                     'EMQAR SUL 06 - Centro','EMQAR - Norte 01 - Cacimbas',
                     'EMQAR - Norte 02 - Cacimbas','EMAQR - UTE Viana'],
         'ID_MMA' : ['ES0005','ES0001','ES0004','ES0003','ES0008','ES0007',
-                    'ES0006','ES0002','ES0009','ES0019','ES0013','ES0010','ES0014',
+                    'ES0006','ES0002','ES0009','ES0016','ES0013','ES0010','ES0014',
                     'ES0012','ES0011','ES0015','ES0018','ES0017','ES0019']})
     
     return df_ids
@@ -995,11 +1067,17 @@ def rectify_MG(path):
         
         nome_pasta = tabela_pols.loc[tabela_pols['COD_POLUENTE'] == int(id_mma_completo[-3:]), 'NOME_PASTA'].values[0]
         
-        df_pol_stat.to_csv('/home/nobre/Notebooks/RQAR_2025_book/data/MQAr_teste/'+nome_pasta+'/'+id_mma_completo+'.csv', index=False)
+        df_pol_stat = create_QAQCMMA_VALOR(df_pol_stat,nome_pasta)
+        
+        df_pol_stat.to_csv('/home/nobre/Notebooks/RQAR_2025_book/data/MQAr/'+nome_pasta+'/'+id_mma_completo+'.csv', index=False)
+
+    df_ids = pd.read_csv('/home/nobre/Notebooks/RQAR_2025_book/data/DADOS_BRUTOS/MG/tabela_MG_codigos.csv')
+
+    return df_ids
         
 #%%
  
-#%%
+#%% SC
 
 
 #%%
@@ -1085,10 +1163,14 @@ def rectify_SC(path):
             cod_pol = tabela_pols.loc[tabela_pols['POLUENTE'] == codigos_pols_SC[pol], 'COD_POLUENTE'].values[0]
             
             nome_pasta = tabela_pols.loc[tabela_pols['COD_POLUENTE'] == int(cod_pol), 'NOME_PASTA'].values[0]
-        
-            estacao_pol.to_csv('/home/nobre/Notebooks/RQAR_2025_book/data/MQAr_teste/'+nome_pasta+'/'
-                               + codigos_SC[nome_estacao] +'RA'+ str(cod_pol).zfill(3) + '.csv',index=False)
 
+            estacao_pol = create_QAQCMMA_VALOR(estacao_pol,nome_pasta)
+        
+            estacao_pol.to_csv(
+                f"/home/nobre/Notebooks/RQAR_2025_book/data/MQAr/{nome_pasta}/"
+                f"{codigos_SC[nome_estacao]}RA{int(cod_pol):03d}.csv",
+                index=False
+            )
     estacao_CO = pd.read_excel('/home/nobre/Notebooks/RQAR_2025_book/data/DADOS_BRUTOS/SC/SC_organizado/CO_EQar_VilaMoema.xlsx')
     
     nome_estacao = estacao_CO.iloc[0, 1]
@@ -1127,9 +1209,14 @@ def rectify_SC(path):
     estacao_CO['UNIDADE'] = unidade
     
     nome_pasta = tabela_pols.loc[tabela_pols['COD_POLUENTE'] == int(cod_pol), 'NOME_PASTA'].values[0]
+
+    estacao_CO = create_QAQCMMA_VALOR(estacao_CO,nome_pasta)
     
-    estacao_CO.to_csv('/home/nobre/Notebooks/RQAR_2025_book/data/MQAr_teste/'+nome_pasta+'/'
-                       + codigos_SC[nome_estacao] +'RA'+ str(cod_pol).zfill(3) + '.csv',index=False)
+    estacao_CO.to_csv(
+        f"/home/nobre/Notebooks/RQAR_2025_book/data/MQAr/{nome_pasta}/"
+        f"{codigos_SC[nome_estacao]}RA{int(cod_pol):03d}.csv",
+        index=False
+    )
 
     # UFSC
 
@@ -1214,15 +1301,22 @@ def rectify_SC(path):
             cod_pol = tabela_pols.loc[tabela_pols['POLUENTE'] == codigos_pols_SC[pol], 'COD_POLUENTE'].values[0]
             
             nome_pasta = tabela_pols.loc[tabela_pols['COD_POLUENTE'] == int(cod_pol), 'NOME_PASTA'].values[0]
+
+            estacao = create_QAQCMMA_VALOR(estacao,nome_pasta)
         
-            estacao.to_csv('/home/nobre/Notebooks/RQAR_2025_book/data/MQAr_teste/'+nome_pasta+'/'
-                               + codigos_SC[nome_estacao] +'RA'+ str(cod_pol).zfill(3) + '.csv',index=False)
+            estacao.to_csv(
+                f"/home/nobre/Notebooks/RQAR_2025_book/data/MQAr/{nome_pasta}/"
+                f"{codigos_SC[nome_estacao]}RA{int(cod_pol):03d}.csv",
+                index=False
+            )
+
     
     df_ids = pd.DataFrame({
         'ID_OEMA': ['Vila Moema', 'Capivari', 'São Bernardo', 'UFSC'],
         'ID_MMA' : ['SC0001','SC0002','SC0003','SC0004']})
     
     return df_ids
+
     
 #%% Função para Rio Grande do Sul
 
@@ -1357,8 +1451,10 @@ def rectify_RS(path):
         df_est_pol.insert(4, 'HORA', df_est_pol.index.hour)
         
         nome_pasta = tabela_pols.loc[tabela_pols['COD_POLUENTE'] == int(chave[-3:]), 'NOME_PASTA'].values[0]
+
+        df_est_pol = create_QAQCMMA_VALOR(df_est_pol,nome_pasta)
         
-        df_est_pol.to_csv('/home/nobre/Notebooks/RQAR_2025_book/data/MQAr_teste/'+nome_pasta+'/'+chave+'.csv',index=False)
+        df_est_pol.to_csv('/home/nobre/Notebooks/RQAR_2025_book/data/MQAr/'+nome_pasta+'/'+chave+'.csv',index=False)
 
     df_ids = pd.DataFrame({
     'ID_MMA': ['RS0001','RS0004','RS0005','RS0006','RS0009','RS0012','RS0013','RS0015','RS0016','RS0017','RS0018','RS0019','RS0020','RS0021','RS0022'],
@@ -1368,8 +1464,587 @@ def rectify_RS(path):
     
 #%% Função para PR
 
+#%% Função para PR
+
+def ler_dados_parana_2024(dicionario,ano):
+    
+    #caminho =  os.getcwd()+'/data/DADOS_BRUTOS/PR/2024/'
+
+    caminho = os.getcwd()+'/data/DADOS_BRUTOS/PR/'+ano+'/'
+    
+    arquivos = os.listdir(caminho)
+    
+    for arquivo in arquivos:
+    
+        if arquivo.endswith(('.xls', '.xlsx')):
+            caminho_arquivo = os.path.join(caminho, arquivo)
+            try:
+                df = pd.read_excel(caminho_arquivo, header=3)
+            except Exception as e:
+                print(f"Tentando ler como texto: {arquivo}")
+                df = pd.read_csv(caminho_arquivo, sep='\t', engine='python', encoding='latin1', header=2, on_bad_lines='skip')
+                print(len(df))
+                
+            col_data = next(c for c in df.columns if c.startswith('Data'))
+        
+            df = (
+            df.replace('-', np.nan)
+              .assign(**{
+                  c: pd.to_numeric(
+                      df[c].astype(str).str.replace(',', '.', regex=False),
+                      errors='coerce'
+                  )
+                  for c in df.columns if c != col_data
+              })
+              .groupby(col_data, as_index=False)
+              .agg(lambda x: x.dropna().iloc[0] if len(x.dropna()) else np.nan)
+            )
+            
+            if '5MIN' in arquivo:
+                estacao = arquivo.split('_')[0]
+            else:
+                estacao = arquivo.split('2')[0]
+            
+            if df.columns[0] == 'Data/Hora':
+        
+                print(estacao)
+    
+                dicionario[ano][estacao] = df
+
+            print(len(df))
+
+    return dicionario
+
+def adicionar_colunas_unidade(df):
+    unidades = df.iloc[0]
+    
+    df = df.iloc[1:].reset_index(drop=True)
+    
+    for col, unidade in unidades.items():
+        if pd.notna(unidade):
+            df[f"{col}_UNIDADE"] = unidade
+    
+    return df
+
+def num_para_hora(valor):
+    try:
+        h = int(valor)
+        m = "30" if valor % 1 == 0.5 else "00"
+        return f"{h}:{m}"
+    except:
+        return None
+        
+    return df
+
+def ler_dados_parana_1998_2002(dicionario,ano):
+    
+    caminho = os.getcwd()+'/data/DADOS_BRUTOS/PR/'+ano+'/'
+        
+    arquivos = os.listdir(caminho)
+    
+    for arquivo in arquivos:
+
+        print(arquivo)
+    
+        if any(Path(caminho+arquivo).iterdir()):
+            pasta = os.listdir(caminho+arquivo)[0]
+    
+            df = pd.read_excel(caminho+arquivo+'/'+pasta,header=1)
+
+            df = adicionar_colunas_unidade(df)
+
+            for hora in ['H', 'HORA', 'Hora']:
+                if hora in df.columns:
+                    df[hora] = df[hora].astype(float).apply(num_para_hora)
+                    break
+
+            estacao = arquivo[:-4]
+    
+            dicionario[ano][estacao] = df 
+
+            print(len(df))
+    
+        else:
+            print('Não há nada em '+ caminho+arquivo)
+
+    return dicionario
+
+def ler_dados_mes_a_mes(caminho):
+
+    tipos_arquivos_ignorar = ['.zip','.rar','.xls','.xlsx','.7z','testes','2016','.ipynb_checkpoints']
+
+    df = pd.DataFrame()
+
+    #print(caminho)
+    #print(sorted(os.listdir(caminho)))
+
+    estacao = caminho.split('/')[-2].split('2')[0]
+    
+    for arquivo in sorted(os.listdir(caminho)):
+        df_mes = pd.DataFrame()
+    
+        if not any(p in arquivo for p in tipos_arquivos_ignorar) or any(p in arquivo for p in ['txt']):
+
+            if '.txt' in arquivo:
+                df_mes = pd.read_csv(caminho+arquivo, sep='\t', engine='python', encoding='latin1')
+                #print(df_mes.head())
+                #print(arquivo)
+                df = pd.concat([df, df_mes], ignore_index=True)
+            
+            else:
+                mes = arquivo[:2]
+                base_path = os.path.join(caminho, arquivo)
+                
+                nomes_possiveis = [
+                    [f"{estacao}1H_{mes}_{ano}.txt",0],
+                    [f"{estacao}1H.txt",0],
+                    [f"{estacao}1H_{mes}_{ano}.xls",3],
+                    [f"{estacao}_1H.xls",2]
+                ]
+
+                for nome in nomes_possiveis:
+                    full_path = os.path.join(base_path, nome[0])
+                    
+                    try:
+                        df_mes = pd.read_csv(full_path, sep='\t', engine='python', encoding='latin1',header=nome[1])
+                        break
+                    except Exception:
+                        try:
+                            df_mes = pd.read_excel(full_path, engine='xlrd',header=nome[1])
+                            break
+                        except Exception:
+                            continue
+
+            if len(df_mes) == 0:
+
+                print(caminho)
+                #print(sorted(os.listdir(caminho)))
+                #print(arquivo)
+                print(df_mes.head())
+                print('')
+                
+            df = pd.concat([df, df_mes], ignore_index=True)
+
+            #df = pd.concat([df, df_mes], ignore_index=True)
+           
+    
+    print('')
+            
+    
+    return df
+
+def verifica_numero(num):
+    try:
+        if num != np.nan:
+            float(num)
+            return True
+    except (ValueError, TypeError):
+        return False
+
+def verifica_data(data):
+    try:
+        pd.to_datetime(data)
+        return True
+    except (ValueError, TypeError):
+        return False
+
+def ler_dados_parana_2003_2019(dicionario,ano):
+
+    pastas_ignorar = ['IQA diário','IQA_IAP','2016','ARAUCARIA2018','ARAUCARIA2019','Thumbs.db','~$Validação_Maio_2014.xlsm','SIX1H_2017.zip','.ipynb_checkpoints']
+
+    caminho = os.getcwd()+'/data/DADOS_BRUTOS/PR/'+ano+'/'
+        
+    arquivos = os.listdir(caminho)
+
+    print('')
+    print(ano)
+    
+    for arquivo in arquivos:
+
+        if arquivo not in pastas_ignorar:
+
+            print(arquivo)
+            
+            if any(nome.endswith(('.xls', '.xlsx')) for nome in os.listdir(caminho+arquivo)) and len(os.listdir(caminho+arquivo)) <= 3:
+                print(os.listdir(caminho+arquivo))
+
+                xlsx = [f for f in os.listdir(caminho+arquivo) if f.endswith('.xlsx')]
+                xls = [f for f in os.listdir(caminho+arquivo) if f.endswith('.xls')]
+                
+                if xlsx:
+                    estacao = xlsx[0] 
+                elif xls:
+                    estacao = xls[0]
+
+                try:
+                    if ano == '2003':
+                        df = pd.read_excel(caminho+arquivo+'/'+estacao,header=1)
+                    elif estacao == 'CIC2019.xlsx':
+                        df = pd.read_excel(caminho+arquivo+'/'+estacao,header=2)
+                    else:
+                        df = pd.read_excel(caminho+arquivo+'/'+estacao)
+                except Exception as e:
+                    print(f"Tentando ler como texto: {arquivo}")
+                    df = pd.read_csv(caminho+arquivo+'/'+estacao, sep='\t', engine='python', encoding='latin1', header=2)
+                
+                if not (verifica_numero(df[df.columns[0]].iloc[0]) or verifica_data(df[df.columns[0]].iloc[0])) or arquivo == 'SIX2017':
+
+                    df = adicionar_colunas_unidade(df)
+
+                print(len(df))
+                    
+                dicionario[ano][arquivo[:-4]] = df 
+
+            elif 'IAP' not in arquivo:
+
+                try:
+                        
+                    df = ler_dados_mes_a_mes(caminho+arquivo+'/')
+                    
+                    if not (verifica_numero(df[df.columns[0]].iloc[0]) or verifica_data(df[df.columns[0]].iloc[0])):
+    
+                        df = adicionar_colunas_unidade(df)
+                
+                    dicionario[ano][arquivo[:-4]] = df 
+
+                    print(len(df))
+
+                except Exception as e:
+                    print(f"A seguinte pasta não existe: {caminho}{arquivo}")
+                    
+    return(dicionario)
+
+def parse_datetime(x):
+    for fmt in ('%Y-%m-%d %H:%M:%S', '%d/%m/%Y %H:%M', '%m/%d/%Y %I:%M:%S %p'):
+        try:
+            return pd.to_datetime(x, format=fmt)
+        except:
+            continue
+    return pd.to_datetime(x, errors='coerce')
+                
+def criar_datetime(df,tipo):
+
+    if tipo == 'D':
+
+        df['A'] = pd.to_numeric(df['A'], errors='coerce')
+
+        if df['A'].iloc[0] < 2000:
+
+            df['A'] = df['A'] + 2000
+                
+        df['H'] = df['H'].astype(str).str.split(':').str[0]
+        
+        df[['A', 'M', 'D', 'H']] = df[['A', 'M', 'D', 'H']].apply(pd.to_numeric, errors='coerce')
+        
+        df['datetime'] = pd.to_datetime(
+            dict(year=df['A'], month=df['M'], day=df['D'], hour=df['H'].clip(upper=23)),
+            errors='coerce'
+        )
+        
+        df.loc[df['H'] == 24, 'datetime'] = df.loc[df['H'] == 24, 'datetime'] + pd.Timedelta(hours=1)
+    
+    elif tipo == 'DATA':
+
+        df['datetime'] = pd.to_datetime(df['DATA']) + pd.to_timedelta(df['HORA'] + ':00')
+
+        df = df.drop(columns=[c for c in ['ANO', 'MES', 'DIA', 'HORA'] if c in df.columns])
+    
+    elif tipo == 'Data':
+
+        try:
+            df['Data'] = pd.to_datetime(df['Data']).dt.date
+        except:
+            print(1)
+
+        print(df.loc[df['Data'].astype(str).str.contains('--', na=False)])
+
+        df['datetime'] = pd.to_datetime(df['Data']) + pd.to_timedelta(df['Hora'] + ':00')
+
+    elif tipo == 'Data/Hora':
+        
+        df['Data/Hora'] = df['Data/Hora'].apply(parse_datetime)
+        
+        df['Data/Hora'] = df['Data/Hora'].dt.strftime('%Y-%m-%d %H:%M:%S')
+
+        df['datetime'] = pd.to_datetime(df['Data/Hora'])
+
+    elif tipo == 'Date/Time':
+        
+        df['Date/Time'] = df['Date/Time'].apply(parse_datetime)
+        
+        df['Date/Time'] = df['Date/Time'].dt.strftime('%Y-%m-%d %H:%M:%S')
+
+        df['datetime'] = pd.to_datetime(df['Date/Time'])
+        
+    df = df.set_index("datetime")
+
+    df = df.sort_index()
+    
+    df.insert(0, 'DATETIME', df.index)
+    df.insert(1, 'ANO', df.index.year)
+    df.insert(2, 'MES', df.index.month)
+    df.insert(3, 'DIA', df.index.day)
+    df.insert(4, 'HORA', df.index.hour)
+
+    return df
+
 def rectify_PR(path):
-    print(path)
+
+    estacoes_por_ano = {
+        '1998': {},
+        '1999': {},
+        '2000': {},
+        '2001': {},
+        '2002': {},
+        '2003': {},
+        '2004': {},
+        '2005': {},
+        '2006': {},
+        '2007': {},
+        '2008': {},
+        '2009': {},
+        '2010': {},
+        '2011': {},
+        '2012': {},
+        '2013': {},
+        '2014': {},
+        '2015': {},
+        '2016': {},
+        '2017': {},
+        '2018': {},
+        '2019': {},
+        '2020': {},
+        '2021': {},
+        '2022': {},
+        '2023': {},
+        '2024': {}
+    }
+    
+    for ano in ['1998','1999','2000',
+                '2001','2002','2003','2004','2005','2006','2007','2008','2009','2010',
+                '2011','2012','2013','2014','2015','2016','2017','2018','2019','2024']:
+    
+        if ano in ['1998','1999','2000','2001','2002']:
+            estacoes_por_ano = ler_dados_parana_1998_2002(estacoes_por_ano,ano)
+        elif ano in ['2003','2004','2005','2006','2007','2008','2009','2010','2011','2012','2013','2014','2015','2016','2017','2018','2019']:
+            estacoes_por_ano = ler_dados_parana_2003_2019(estacoes_por_ano,ano)
+        elif ano in ['2024']:
+            estacoes_por_ano = ler_dados_parana_2024(estacoes_por_ano,ano)
+
+    lista_colunas = []
+
+    lista = []
+
+    for ano in estacoes_por_ano.keys():
+        
+        print(ano)
+    
+        for estacao in estacoes_por_ano[ano].keys():
+    
+            #print(estacao)
+            
+            lista.append(estacao)
+    
+            lista_colunas = lista_colunas + list(estacoes_por_ano[ano][estacao].columns)
+            
+            if any(item in ['D','DATA','Data','Date/Time','Data/Hora'] for item in estacoes_por_ano[ano][estacao].columns):
+    
+                if 'D' in estacoes_por_ano[ano][estacao].columns:
+                    print('D')
+                    estacoes_por_ano[ano][estacao] = criar_datetime(estacoes_por_ano[ano][estacao], 'D')
+                    #print(estacoes_por_ano[ano][estacao])
+                elif 'DATA' in estacoes_por_ano[ano][estacao].columns:
+                    print('DATA')
+                    estacoes_por_ano[ano][estacao] = criar_datetime(estacoes_por_ano[ano][estacao], 'DATA')
+                    #print(estacoes_por_ano[ano][estacao])
+                elif 'Data' in estacoes_por_ano[ano][estacao].columns:
+                    print('Data')
+                    estacoes_por_ano[ano][estacao] = criar_datetime(estacoes_por_ano[ano][estacao], 'Data')
+                    #print(estacoes_por_ano[ano][estacao])
+                elif 'Date/Time' in estacoes_por_ano[ano][estacao].columns:
+                    print('Date/Time')
+                    estacoes_por_ano[ano][estacao] = criar_datetime(estacoes_por_ano[ano][estacao], 'Date/Time')
+                    #print(estacoes_por_ano[ano][estacao])
+                elif 'Data/Hora' in estacoes_por_ano[ano][estacao].columns:
+                    print('Data/Hora')
+                    estacoes_por_ano[ano][estacao] = criar_datetime(estacoes_por_ano[ano][estacao], 'Data/Hora')
+                    #print(estacoes_por_ano[ano][estacao])
+                else:
+                    print('ERRO')
+        print('')
+
+    df_col_pols = pd.read_csv('/home/nobre/Notebooks/RQAR_2025_book/data/DADOS_BRUTOS/PR/colunas_pol_PR.csv',encoding='UTF-8')
+
+    pol_estacao_ano = {}
+    
+    print(df_col_pols)
+    
+    for ano in estacoes_por_ano.keys():
+    
+        pol_estacao_ano[ano] = {}
+    
+        for estacao in estacoes_por_ano[ano]:
+        
+            pol_estacao_ano[ano][estacao] = {}
+            
+            for pol in df_col_pols['col_pr']:
+    
+                if pol in estacoes_por_ano[ano][estacao].columns and 'UNIDADE' not in pol:
+    
+                    poluente_mma = df_col_pols.loc[df_col_pols['col_pr'] == pol, 'col_mma'].iloc[0]
+    
+                    qaqc_interno = np.nan
+                    
+                    if '(' in pol:
+                        unidade = pol.split('(')[-1][:-1]
+                        print(pol)            
+                        #print(unidade)
+    
+                        df = estacoes_por_ano[ano][estacao][['DATETIME','ANO','MES','DIA','HORA',pol]]
+    
+                        df['UNIDADE'] = unidade
+                        df['QAQC_INTERNO'] = qaqc_interno
+    
+                        df.rename(columns={pol: 'VALOR'}, inplace=True)
+                        
+                    elif (pol+'_UNIDADE') in estacoes_por_ano[ano][estacao].columns:
+                        #print('')
+                        #print(pol)
+                        #print('')
+    
+                        df = estacoes_por_ano[ano][estacao][['DATETIME','ANO','MES','DIA','HORA',pol,pol+'_UNIDADE']]
+    
+                        df['QAQC_INTERNO'] = qaqc_interno
+    
+                        df.rename(columns={pol: 'VALOR',pol+'_UNIDADE':'UNIDADE'}, inplace=True)
+                        
+                    else:
+    
+                        df = estacoes_por_ano[ano][estacao][['DATETIME','ANO','MES','DIA','HORA',pol]]
+                        
+                        df['UNIDADE'] = np.nan
+                        df['QAQC_INTERNO'] = qaqc_interno
+    
+                        df.rename(columns={pol: 'VALOR'}, inplace=True)
+    
+                    pol_estacao_ano[ano][estacao][poluente_mma] = df
+
+    pol_estacao = {}
+
+    for ano, estacoes in pol_estacao_ano.items():
+        for estacao, poluentes in estacoes.items():
+            for poluente, df in poluentes.items():
+                pol_estacao.setdefault(estacao, {}).setdefault(poluente, [])
+                pol_estacao[estacao][poluente].append(df)
+    
+    estacoes_finais = {}
+    
+    for estacao, poluentes in pol_estacao.items():
+        for poluente, lista_dfs in poluentes.items():
+            df_concat = pd.concat(lista_dfs, ignore_index=True)
+    
+            df_concat = df_concat[df_concat['DATETIME'].notna()]
+    
+            df_concat['VALOR'] = (
+                df_concat['VALOR']
+                .astype(str)           
+                .str.replace(',', '.', regex=False)  
+            )
+    
+            df_concat['VALOR'] = pd.to_numeric(df_concat['VALOR'], errors='coerce')
+    
+            df_media = (
+                df_concat.groupby(['ANO', 'MES', 'DIA', 'HORA', 'UNIDADE'], as_index=False)['VALOR']
+                  .mean()
+            )
+            
+            df_media["DATETIME"] = pd.to_datetime(
+                df_media.apply(
+                    lambda r: f"{int(r.ANO):04d}-{int(r.MES):02d}-{int(r.DIA):02d} {int(r.HORA):02d}:00:00",
+                    axis=1
+                )
+            )
+    
+            df_media = df_media.drop(columns=['ANO', 'MES', 'DIA', 'HORA'])
+    
+            df_media = df_media.set_index("DATETIME")
+        
+            df_media = df_media.sort_index()
+            
+            lista_horas = pd.date_range(
+                start=df_media.index.min(), 
+                end=df_media.index.max(), 
+                freq='H').strftime('%Y-%m-%d %H:%M:%S').tolist()
+            
+            if len(lista_horas) != len(df):
+                df_media = df_media.reindex(pd.DatetimeIndex(lista_horas))
+    
+            df_media.insert(1, 'ANO', df_media.index.year)
+            df_media.insert(2, 'MES', df_media.index.month)
+            df_media.insert(3, 'DIA', df_media.index.day)
+            df_media.insert(4, 'HORA', df_media.index.hour)
+            
+            df_media['DATETIME'] = df_media.index
+    
+            df_media['QAQC_INTERNO'] = None
+            
+            df_media = df_media[['DATETIME', 'ANO', 'MES', 'DIA', 'HORA', 'VALOR', 'UNIDADE', 'QAQC_INTERNO']]
+    
+            estacoes_finais[estacao+'_'+poluente] = df_media
+
+    primeiros_valores = {}
+
+    for chave, df in estacoes_finais.items():  
+        
+        if ~df['VALOR'].isna().all() and (df['VALOR'] > 0).any(): 
+            
+            linha_valida = df[df["VALOR"].notna() & (df["VALOR"] > 0)].iloc[0]
+            primeiros_valores[chave] = linha_valida["DATETIME"]
+    
+    codigo_estacao_PR = {}
+    
+    for chave in primeiros_valores.keys():
+        
+        station = chave.split('_')[0]
+        data = primeiros_valores[chave]
+        
+        if station in codigo_estacao_PR:
+            if data <= codigo_estacao_PR[station]:
+                codigo_estacao_PR[station] = data
+        else:
+            codigo_estacao_PR[station] = data
+    
+    sorted_items = sorted(
+        codigo_estacao_PR.items(),
+        key=lambda x: (x[1], x[0])
+    )
+    
+    codigo_estacao_PR = {}
+    for i, (nome, ts) in enumerate(sorted_items, start=1):
+        codigo = f"PR{i:04d}"
+        codigo_estacao_PR[nome] = codigo
+        
+    for chave, df in estacoes_finais.items():
+        
+        estacao = codigo_estacao_PR[chave.split('_')[0]]
+    
+        if chave.split('_')[-1] != 'CS':
+            
+            cod_pol = tabela_pols.loc[tabela_pols['NOME_PASTA'] == chave.split('_')[-1], 'COD_POLUENTE'].values[0]
+            
+            nome_pasta = tabela_pols.loc[tabela_pols['COD_POLUENTE'] == int(cod_pol), 'NOME_PASTA'].values[0]
+        
+            df = create_QAQCMMA_VALOR(df,nome_pasta)
+    
+            df.to_csv('/home/nobre/Notebooks/RQAR_2025_book/data/MQAr/'+nome_pasta+'/'+estacao+'RA'+str(int(cod_pol)).zfill(3)+'.csv',index=False)
+    
+    df_ids = pd.DataFrame({
+        'ID_OEMA': codigo_estacao_PR.keys(),
+        'ID_MMA':list(codigo_estacao_PR.values())})
+
+    
+    
+    return df_ids
 
 
 #%% Função para Bahia
@@ -1491,8 +2166,10 @@ def rectify_BA(path):
         cod_pol = tabela_pols.loc[tabela_pols['POLUENTE'] == chave.split('_')[-1], 'COD_POLUENTE'].values[0]
         
         nome_pasta = tabela_pols.loc[tabela_pols['COD_POLUENTE'] == int(cod_pol), 'NOME_PASTA'].values[0]
+
+        df = create_QAQCMMA_VALOR(df,nome_pasta)
         
-        df.to_csv('/home/nobre/Notebooks/RQAR_2025_book/data/MQAr/'+nome_pasta+'/'+estacao+'RA'+str(cod_pol).zfill(3)+'.csv',index=False)
+        df.to_csv('/home/nobre/Notebooks/RQAR_2025_book/data/MQAr/'+nome_pasta+'/'+estacao+'ND'+str(cod_pol).zfill(3)+'.csv',index=False)
 
     df_ids = pd.DataFrame({
     'ID_OEMA': codigo_estacao_BA.keys(),
@@ -1626,6 +2303,8 @@ def rectify_MA(path):
         cod_pol = tabela_pols.loc[tabela_pols['POLUENTE'] == chave.split('_')[-1], 'COD_POLUENTE'].values[0]
         
         nome_pasta = tabela_pols.loc[tabela_pols['COD_POLUENTE'] == int(cod_pol), 'NOME_PASTA'].values[0]
+
+        df = create_QAQCMMA_VALOR(df,nome_pasta)
         
         df.to_csv('/home/nobre/Notebooks/RQAR_2025_book/data/MQAr/'+nome_pasta+'/'+estacao+'RA'+str(cod_pol).zfill(3)+'.csv',index=False)
 
@@ -1783,6 +2462,8 @@ def rectify_MT(path):
         cod_pol = tabela_pols.loc[tabela_pols['POLUENTE'] == dict_pols_MT[chave.split('_')[-1]], 'COD_POLUENTE'].values[0]
         
         nome_pasta = tabela_pols.loc[tabela_pols['COD_POLUENTE'] == int(cod_pol), 'NOME_PASTA'].values[0]
+
+        df = create_QAQCMMA_VALOR(df,nome_pasta)
         
         df.to_csv('/home/nobre/Notebooks/RQAR_2025_book/data/MQAr/'+nome_pasta+'/'+estacao+'IA'+str(cod_pol).zfill(3)+'.csv',index=False)
 
@@ -1798,8 +2479,9 @@ def rectify_MT(path):
         'ID_OEMA': codigo_estacao_MT.keys(),
         'ID_MMA':list(codigo_estacao_MT.values())})
     
-    
     df_ids["ID_OEMA"] = df_ids["ID_OEMA"].replace(dict_stations_MT)
+
+    print(df_ids)
     
     return df_ids
 
@@ -1936,6 +2618,8 @@ def rectify_DF(path):
         cod_pol = tabela_pols.loc[tabela_pols['POLUENTE'] == chave.split('_')[-1], 'COD_POLUENTE'].values[0]
         
         nome_pasta = tabela_pols.loc[tabela_pols['COD_POLUENTE'] == int(cod_pol), 'NOME_PASTA'].values[0]
+
+        df = create_QAQCMMA_VALOR(df,nome_pasta)
         
         df.to_csv('/home/nobre/Notebooks/RQAR_2025_book/data/MQAr/'+nome_pasta+'/'+estacao+'RS'+str(cod_pol).zfill(3)+'.csv',index=False)
     
@@ -1950,26 +2634,813 @@ def rectify_DF(path):
     df_ids['ID_OEMA'] = df_ids['ID_OEMA'].replace(dict_oema)
     
     return df_ids
+#%% Função Pernambuco
+    
+def rectify_PE(path):
+    import glob
+    import os
+    import re
+    import numpy as np
+    import pandas as pd
+    from collections import defaultdict
+
+    # Localiza todos os arquivos Excel dentro da pasta PE
+    arquivos = sorted(glob.glob(os.path.join(path, '*.xls*')))
+    if not arquivos:
+        raise FileNotFoundError(f"Nenhum arquivo Excel encontrado em {path}")
+
+    print(f"📂 Encontrados {len(arquivos)} arquivos em {path}")
+
+    dict_pols_stat_global = defaultdict(lambda: pd.DataFrame())
+
+    for arq in arquivos:
+        ano = re.search(r'\d{4}', os.path.basename(arq))
+        ano_txt = ano.group(0) if ano else "?"
+        print(f"🔹 Processando: {os.path.basename(arq)} (ano {ano_txt})")
+
+        try:
+            df = pd.read_excel(arq)
+        except Exception as e:
+            print(f"⚠️ Erro ao ler {arq}: {e}")
+            continue
+
+        # ======== Cabeçalhos e estrutura básica ========
+        df.iloc[1] = df.iloc[1].ffill()
+        df.columns = df.iloc[1]
+        df = df.drop(index=[0, 1]).reset_index(drop=True)
+        df = df.rename(columns={'Date Time': 'DATETIME'})
+
+        poluentes = ['CO_ppm', 'NO2_ug/m3', 'NO_ug/m3', 'NOx_ug/m3',
+                     'O3_ug/m3', 'PM10', 'PM25', 'PTS', 'SO2_ug/m3']
+        dict_pols = {'CO_ppm': 'CO', 'NO2_ug/m3': 'NO2', 'NO_ug/m3': 'NO',
+                     'NOx_ug/m3': 'NOX', 'O3_ug/m3': 'O3', 'PM10': 'MP10',
+                     'PM25': 'MP25', 'PTS': 'PTS', 'SO2_ug/m3': 'SO2'}
+
+        estacoes = set(df.columns[1:])
+        dict_pols_stat = defaultdict(pd.DataFrame)
+
+        for estacao in estacoes:
+            df_estacao = df[['DATETIME', estacao]].copy()
+
+            # Extrai colunas de poluentes
+            df_estacao.columns = [df_estacao.columns.tolist()[0]] + df_estacao.iloc[0, 1:].tolist()
+            df_estacao = df_estacao.drop(index=[0]).reset_index(drop=True)
+
+            for pol in poluentes:
+                if pol in df_estacao.columns:
+                    df_pol = df_estacao[['DATETIME', pol]].copy()
+                    df_pol['UNIDADE'] = df_pol[pol].iloc[0]
+                    df_pol = df_pol.drop(index=[0]).reset_index(drop=True)
+                    df_pol = df_pol[df_pol['DATETIME'].astype(str).str.contains(r"\d", na=False)].reset_index(drop=True)
+
+                    # Conserta "24:" → "00:" e converte para datetime
+                    df_pol['DATETIME'] = df_pol['DATETIME'].apply(fix_24h)
+                    df_pol['DATETIME'] = pd.to_datetime(df_pol['DATETIME'], errors='coerce')
+                    df_pol = df_pol.dropna(subset=['DATETIME'])
+
+                    df_pol = df_pol.rename(columns={pol: 'VALOR'})
+                    df_pol['VALOR'] = pd.to_numeric(df_pol['VALOR'], errors='coerce')
+
+                    # ========= Garantia de sequência horária completa =========
+                    df_pol = df_pol.set_index('DATETIME').sort_index()
+                    horas_completas = pd.date_range(df_pol.index.min(), df_pol.index.max(), freq='H')
+                    df_pol = df_pol.reindex(horas_completas)
+
+                    # Preenche unidade e cria QAQC
+                    for col in ['UNIDADE']:
+                        if col in df_pol.columns:
+                            df_pol[col] = df_pol[col].ffill().bfill()
+
+                    df_pol['QAQC_INTERNO'] = np.where(df_pol['VALOR'].isna(), 'Inválido', 'OK')
+
+                    # Colunas auxiliares
+                    df_pol['ANO'] = df_pol.index.year
+                    df_pol['MES'] = df_pol.index.month
+                    df_pol['DIA'] = df_pol.index.day
+                    df_pol['HORA'] = df_pol.index.hour
+
+                    df_pol = df_pol.reset_index().rename(columns={'index': 'DATETIME'})
+                    df_pol = df_pol[['DATETIME', 'ANO', 'MES', 'DIA', 'HORA', 'VALOR', 'UNIDADE', 'QAQC_INTERNO']]
+
+                    pol_sigla = dict_pols[pol]
+                    chave = f"{estacao}_{pol_sigla}"
+                    dict_pols_stat[chave] = df_pol
+
+        # ======== Acumula todos os anos (concatena) ========
+        for chave, df_parcial in dict_pols_stat.items():
+            dict_pols_stat_global[chave] = pd.concat(
+                [dict_pols_stat_global[chave], df_parcial],
+                ignore_index=True
+            )
+
+    # ======== Criação de IDs e exportação ========
+    primeiros_valores = {}
+    for chave, df in dict_pols_stat_global.items():
+        if not df['VALOR'].isna().all() and (df['VALOR'] > 0).any():
+            linha_valida = df[df['VALOR'].notna() & (df['VALOR'] > 0)].iloc[0]
+            primeiros_valores[chave] = linha_valida['DATETIME']
+
+    codigo_estacao_PE = {}
+    for chave, data in primeiros_valores.items():
+        station = chave.split('_')[0]
+        if station in codigo_estacao_PE:
+            if data <= codigo_estacao_PE[station]:
+                codigo_estacao_PE[station] = data
+        else:
+            codigo_estacao_PE[station] = data
+
+    sorted_items = sorted(codigo_estacao_PE.items(), key=lambda x: (x[1], x[0]))
+    codigo_estacao_PE = {nome: f"PE{i:04d}" for i, (nome, _) in enumerate(sorted_items, start=1)}
+
+    # ======== Salva os CSVs por poluente ========
+    for chave, df in dict_pols_stat_global.items():
+        estacao = codigo_estacao_PE.get(chave.split('_')[0], 'PE9999')
+        pol = chave.split('_')[-1]
+
+        cod_pol = tabela_pols.loc[tabela_pols['POLUENTE'] == pol, 'COD_POLUENTE'].values[0]
+        nome_pasta = tabela_pols.loc[tabela_pols['COD_POLUENTE'] == int(cod_pol), 'NOME_PASTA'].values[0]
+
+        df = create_QAQCMMA_VALOR(df, nome_pasta)
+
+        df.to_csv(
+            f'/home/nobre/Notebooks/RQAR_2025_book/data/MQAr/{nome_pasta}/{estacao}ND{int(cod_pol):03d}.csv',
+            index=False
+        )
+
+    # ======== Cria e retorna df_ids ========
+    df_ids = pd.DataFrame({
+        'ID_OEMA': codigo_estacao_PE.keys(),
+        'ID_MMA': list(codigo_estacao_PE.values())
+    })
+
+    df_ids.to_csv(f'/home/nobre/Notebooks/RQAR_2025_book/data/DADOS_ESTACOES/teste_id_mma_oema_PE.csv')
+
+    print(f"\n✅ {len(df_ids)} estações processadas em Pernambuco")
+    print("\n📋 Mapeamento Estação → Código MMA:")
+    for k, v in codigo_estacao_PE.items():
+        print(f"{v} → {k}")
+
+    return df_ids
 
 
+
+#%% Função para Roraima (RR)
+
+def rectify_RR(path):
+    import glob, os, re
+    import pandas as pd
+    import numpy as np
+    from collections import defaultdict
+
+    # ======== Localiza arquivos ========
+    arquivos = sorted(glob.glob(os.path.join(path, '*.xls*'))) + sorted(glob.glob(os.path.join(path, '*.xlsx')))
+    if not arquivos:
+        raise FileNotFoundError(f"Nenhum arquivo Excel encontrado em {path}")
+
+    print(f"📂 Encontrados {len(arquivos)} arquivos em {path}")
+    dict_pols_stat_global = defaultdict(lambda: pd.DataFrame())
+
+    for arq in arquivos:
+        print(f"🔹 Processando: {os.path.basename(arq)}")
+
+        # 1️⃣ Lê planilha multi-header (formato ENEVA/FEMARH)
+        df = pd.read_excel(arq, header=list(range(0, 8)))
+
+        # 2️⃣ Junta cabeçalhos em uma única linha
+        df.columns = ['_'.join([str(x) for x in col if str(x) != 'nan']).strip() for col in df.columns]
+        df.columns = [re.sub(r'\s+', ' ', c).strip() for c in df.columns]
+
+        # 3️⃣ Identifica coluna de data/hora
+        col_data = [c for c in df.columns if re.search(r'data', c, re.IGNORECASE)]
+        if not col_data:
+            col_data = [df.columns[0]]
+        df = df.rename(columns={col_data[0]: 'DATETIME'})
+        df['DATETIME'] = pd.to_datetime(df['DATETIME'], errors='coerce')
+        df = df.dropna(subset=['DATETIME'])
+
+        # 4️⃣ Poluentes reconhecidos
+        dict_pols = {
+            'Partículas Respiráveis (<2,5µm)': 'MP25',
+            'Partículas Inaláveis (<10µm)': 'MP10',
+            'Monóxido de Carbono': 'CO',
+            'Dióxido de Nitrogênio': 'NO2',
+            'Monóxido de Nitrogênio': 'NO',
+            'Óxidos de Nitrogênio': 'NOX',
+            'Ozônio': 'O3',
+            'Dióxido de Enxofre': 'SO2',
+        }
+
+        # 5️⃣ Detecta nomes de estações
+        estacoes_detectadas = sorted(set(
+            re.findall(r'Estação\s+([A-Za-zçÇãÃ\s]+)', ' '.join(df.columns))
+        ))
+
+        for estacao_nome in estacoes_detectadas:
+            print(f"   → Estação detectada: {estacao_nome}")
+
+            for pol_texto, pol_sigla in dict_pols.items():
+                col_match = [c for c in df.columns if pol_texto in c and 'Valor' in c and estacao_nome in c]
+                if not col_match:
+                    continue
+
+                col_pol = col_match[0]
+                df_pol = df[['DATETIME', col_pol]].copy()
+
+                # Converte e prepara colunas
+                df_pol['VALOR'] = pd.to_numeric(df_pol[col_pol], errors='coerce')
+                df_pol['UNIDADE'] = re.search(r'\[(.*?)\]', col_pol).group(1) if '[' in col_pol else 'µg/m³'
+                df_pol = df_pol.drop(columns=[col_pol])
+
+                # ========= Garante sequência horária completa =========
+                df_pol = df_pol.set_index('DATETIME').sort_index()
+                horas_completas = pd.date_range(df_pol.index.min(), df_pol.index.max(), freq='H')
+                df_pol = df_pol.reindex(horas_completas)
+
+                # Preenche unidade e define QAQC
+                for col in ['UNIDADE']:
+                    if col in df_pol.columns:
+                        df_pol[col] = df_pol[col].ffill().bfill()
+
+                df_pol['QAQC_INTERNO'] = np.where(df_pol['VALOR'].isna(), 'Inválido', 'OK')
+
+                # Colunas auxiliares
+                df_pol['ANO'] = df_pol.index.year
+                df_pol['MES'] = df_pol.index.month
+                df_pol['DIA'] = df_pol.index.day
+                df_pol['HORA'] = df_pol.index.hour
+
+                df_pol = df_pol.reset_index().rename(columns={'index': 'DATETIME'})
+                df_pol = df_pol[['DATETIME', 'ANO', 'MES', 'DIA', 'HORA', 'VALOR', 'UNIDADE', 'QAQC_INTERNO']]
+
+                chave = f"{estacao_nome.replace(' ', '_').upper()}_{pol_sigla}"
+                dict_pols_stat_global[chave] = pd.concat([dict_pols_stat_global[chave], df_pol], ignore_index=True)
+
+    # ======== Gera IDs únicos (baseados na 1ª data válida) ========
+    primeiros_valores = {}
+    for chave, df in dict_pols_stat_global.items():
+        if not df['VALOR'].isna().all() and (df['VALOR'] > 0).any():
+            linha_valida = df[df['VALOR'].notna() & (df['VALOR'] > 0)].iloc[0]
+            primeiros_valores[chave] = linha_valida['DATETIME']
+
+    codigo_estacao_RR = {}
+    for chave, data in primeiros_valores.items():
+        station = chave.split('_')[0]
+        if station in codigo_estacao_RR:
+            if data <= codigo_estacao_RR[station]:
+                codigo_estacao_RR[station] = data
+        else:
+            codigo_estacao_RR[station] = data
+
+    sorted_items = sorted(codigo_estacao_RR.items(), key=lambda x: (x[1], x[0]))
+    codigo_estacao_RR = {nome: f"RR{i:04d}" for i, (nome, _) in enumerate(sorted_items, start=1)}
+
+    # ======== Exporta CSVs padronizados ========
+    for chave, df in dict_pols_stat_global.items():
+        estacao = codigo_estacao_RR.get(chave.split('_')[0], 'RR9999')
+        pol = chave.split('_')[-1]
+
+        cod_pol = tabela_pols.loc[tabela_pols['POLUENTE'] == pol, 'COD_POLUENTE'].values[0]
+        nome_pasta = tabela_pols.loc[tabela_pols['COD_POLUENTE'] == int(cod_pol), 'NOME_PASTA'].values[0]
+
+        df = create_QAQCMMA_VALOR(df, nome_pasta)
+
+        # 💾 Sistema de salvamento padronizado
+        df.to_csv(
+            f'/home/nobre/Notebooks/RQAR_2025_book/data/MQAr/{nome_pasta}/{estacao}RS{int(cod_pol):03d}.csv',
+            index=False
+        )
+
+    # ======== Tabela de mapeamento ID_OEMA ↔ ID_MMA ========
+    df_ids = pd.DataFrame({
+        'ID_OEMA': codigo_estacao_RR.keys(),
+        'ID_MMA': list(codigo_estacao_RR.values())
+    })
+
+    print(f"\n✅ {len(df_ids)} estações processadas em Roraima")
+    print("\n📋 Mapeamento Estação → Código MMA:")
+    for k, v in codigo_estacao_RR.items():
+        print(f"{v} → {k}")
+
+    return df_ids
+
+  
+    
+#%% Função Ceará
+def padronizar_horas(df, nome_df="df"):
+    """
+    Padroniza coluna DATETIME e cria intervalo horário completo (hora a hora)
+    """
+    df = df.rename(columns={df.columns[0]: 'DATETIME'})
+    df['DATETIME'] = pd.to_datetime(df['DATETIME'], errors='coerce')
+    df = df.dropna(subset=['DATETIME'])
+
+    if df.empty:
+        print(f"⚠️ {nome_df} está vazio após remover datas inválidas!")
+        return df
+    
+    full_range = pd.date_range(start=df['DATETIME'].min(), end=df['DATETIME'].max(), freq='h')
+    df = df.set_index('DATETIME').reindex(full_range).reset_index()
+    df = df.rename(columns={'index': 'DATETIME'})
+    print(f"✅ {nome_df} atualizado: {len(df)} linhas com horas consecutivas")
+    return df
+
+def adicionar_colunas_data(df):
+    """
+    Adiciona colunas ANO, MES, DIA, HORA após DATETIME
+    """
+    df['DATETIME'] = pd.to_datetime(df['DATETIME'], errors='coerce')
+    df['ANO'] = df['DATETIME'].dt.year
+    df['MES'] = df['DATETIME'].dt.month
+    df['DIA'] = df['DATETIME'].dt.day
+    df['HORA'] = df['DATETIME'].dt.hour
+
+    cols = df.columns.tolist()
+    novas_colunas = ['DATETIME', 'ANO', 'MES', 'DIA', 'HORA']
+    outras_colunas = [col for col in cols if col not in novas_colunas]
+    return df[novas_colunas + outras_colunas]
+
+def gerar_arquivos_estacoes_poluentes(dfs_alvo, UF_estacoes, df_cod_pol, pasta_saida):
+    """
+    Gera arquivos CSV por estação e poluente com QAQC
+    """
+    for nome_var in dfs_alvo:
+        if nome_var not in globals():
+            continue
+
+        df_estacao = globals()[nome_var].copy()
+        id_oema = nome_var.replace("df_", "").replace("_", " ").strip()
+
+        # Buscar o ID_MMA correspondente
+        id_mma = UF_estacoes.loc[UF_estacoes['ID_OEMA'].str.lower() == id_oema.lower(), 'ID_MMA']
+        if id_mma.empty:
+            print(f"⚠️ ID_MMA não encontrado para {id_oema}")
+            continue
+        id_mma = id_mma.iloc[0]
+
+        colunas_poluentes = df_estacao.columns[5:]
+
+        for col in colunas_poluentes:
+            if df_estacao[col].dropna().eq('').all():
+                print(f"⏭️ Pulando {col} em {id_oema} (sem dados válidos)")
+                continue
+
+            nome_poluente_col = re.sub(r"\(.*\)", "", col).strip()
+            unidade = ""
+            match_unidade = re.search(r"\((.*?)\)", col)
+            if match_unidade:
+                unidade = match_unidade.group(1)
+
+            linha_pol = df_cod_pol[df_cod_pol['POLUENTE'].str.upper().str.strip() == nome_poluente_col.upper()]
+            if linha_pol.empty:
+                print(f"⚠️ Poluente {nome_poluente_col} não encontrado em CODIGO_POLUENTES.csv")
+                continue
+
+            cod_pol = linha_pol['COD_POLUENTE'].iloc[0].zfill(3)
+            nome_pasta = linha_pol['NOME_PASTA'].iloc[0]
+
+            pasta_destino = os.path.join(pasta_saida, nome_pasta)
+            os.makedirs(pasta_destino, exist_ok=True)
+
+            df_saida = pd.DataFrame({
+                'DATETIME': df_estacao['DATETIME'],
+                'ANO': df_estacao['ANO'],
+                'MES': df_estacao['MES'],
+                'DIA': df_estacao['DIA'],
+                'HORA': df_estacao['HORA'],
+                'VALOR_ORIGINAL': df_estacao[col],
+                'UNIDADE': unidade,
+                'QAQC_INTERNO': df_estacao[col],
+                'QAQC_MMA': df_estacao[col]
+            })
+
+            df_saida = create_QAQCMMA_VALOR(df_saida, nome_poluente_col)
+
+            nome_arquivo = f"{id_mma}ND{cod_pol}".replace("_", "") + ".csv"
+            caminho_saida = os.path.join(pasta_destino, nome_arquivo)
+            df_saida.to_csv(caminho_saida, index=False, sep=',', encoding='utf-8-sig')
+            print(f"💾 Arquivo criado: {caminho_saida}")
+def rectify_CE(path):
+    import pandas as pd
+    import os, glob, re, csv
+
+    # Caminhos fixos
+    arquivo_estacoes = "/home/nobre/Notebooks/RQAR_2025_book/data/DADOS_ESTACOES/CE_estacoes.csv"
+    UF_estacoes = pd.read_csv(arquivo_estacoes, sep=',', dtype=str)
+
+    codigos = r"/home/nobre/Notebooks/RQAR_2025_book/data/dicionarios/CODIGO_POLUENTES.csv"
+    df_cod_pol = pd.read_csv(codigos, sep=',', dtype=str).drop(columns=['NOME_TEXTO'], errors='ignore')
+
+    pasta = r"/home/nobre/Notebooks/RQAR_2025_book/data/DADOS_BRUTOS/CE"
+    dados_brutos_CE = glob.glob(os.path.join(pasta, "*.csv"))
+
+    dfs_alvo = []
+
+    # Ler CSVs e criar DataFrames globais
+    for caminho in dados_brutos_CE:
+        nome_arquivo = os.path.splitext(os.path.basename(caminho))[0]
+        nome_variavel = re.sub(r'\W+', '_', nome_arquivo)
+
+        # Detectar delimitador automaticamente
+        with open(caminho, 'r', encoding='utf-8', errors='ignore') as f:
+            amostra = f.read(2048)
+            f.seek(0)
+            try:
+                delimitador = csv.Sniffer().sniff(amostra).delimiter
+            except:
+                delimitador = ','
+
+        # Ler CSV
+        df_temp = pd.read_csv(caminho, sep=delimitador, dtype=str)
+        globals()[f"df_{nome_variavel}"] = df_temp
+        dfs_alvo.append(f"df_{nome_variavel}")
+        print(f"✅ Criado DataFrame: df_{nome_variavel} (sep='{delimitador}', {len(df_temp)} linhas, {len(df_temp.columns)} colunas)")
+
+    # Padronizar horas, adicionar colunas e converter unidades
+    for nome_var in dfs_alvo:
+        df = globals()[nome_var]
+
+        # Padronizar horas
+        df = padronizar_horas(df, nome_var)
+        if df.empty:
+            print(f"⚠️ {nome_var} ficou vazio após padronizar horas. Pulando...")
+            continue
+
+        df = adicionar_colunas_data(df)
+
+        # Colunas de poluentes (a partir da 6ª coluna)
+        colunas_poluentes = df.columns[5:]
+
+        print(colunas_poluentes)
+
+        for col in colunas_poluentes:
+            print(col)
+            if col == 'CO(µg/m³)':
+                print(col)
+            
+                df_temp = pd.DataFrame({
+                    "VALOR": pd.to_numeric(df[col], errors="coerce"),
+                    "UNIDADE": "µg/m³"
+                })
+
+                df_temp = ug_to_ppm(df_temp)
+
+                df[col] = df_temp["VALOR"]
+                df[f"{col}_UNIDADE"] = df_temp["UNIDADE"]
+
+                # Debug opcional
+                print(f"🔁 Conversão concluída para {col} (amostra):")
+                print(df_temp.head(3))
+
+        # Atualiza o DataFrame global
+        globals()[nome_var] = df
+
+    # Pasta de saída
+    pasta_saida = r"/home/nobre/Notebooks/RQAR_2025_book/data/MQAr"
+    gerar_arquivos_estacoes_poluentes(dfs_alvo, UF_estacoes, df_cod_pol, pasta_saida)
+
+    print("✅ Processamento do Ceará concluído com sucesso!")
+
+    # 🔁 Retorno necessário para o CreateSheetEstados.py
+    return UF_estacoes
+
+
+def rectify_PB(path):
+    #--------------------------------------------------------
+    # Caminhos
+    #--------------------------------------------------------
+    arquivo_estacoes = "/home/nobre/Notebooks/RQAR_2025_book/data/DADOS_ESTACOES/PB_estacoes.csv"
+    arquivo_cod_pol = "/home/nobre/Notebooks/RQAR_2025_book/data/dicionarios/CODIGO_POLUENTES.csv"
+    pasta_dados = "/home/nobre/Notebooks/RQAR_2025_book/data/DADOS_BRUTOS/PB"
+    pasta_saida = "/home/nobre/Notebooks/RQAR_2025_book/data/MQAr"
+
+    #--------------------------------------------------------
+    # Carregar bases auxiliares
+    #--------------------------------------------------------
+    UF_estacoes = pd.read_csv(arquivo_estacoes, sep=',', dtype=str)
+    df_cod_pol = pd.read_csv(arquivo_cod_pol, sep=',', dtype=str)
+    df_cod_pol = df_cod_pol.drop(columns=['NOME_TEXTO'], errors='ignore')
+
+    #--------------------------------------------------------
+    # Ler dados brutos
+    #--------------------------------------------------------
+    arquivos_txt = glob.glob(os.path.join(pasta_dados, "*.txt"))
+    colunas = [
+        "Data", "Serial", "Nome do Órgão",
+        "PTS", "PM10", "PM25", "PM1", "Voltagem da Bateria"
+    ]
+
+    dfs = {}
+    for arquivo in arquivos_txt:
+        nome_base = os.path.splitext(os.path.basename(arquivo))[0]
+        nome_var = "df_" + re.sub(r'\W+', '_', nome_base)
+
+        try:
+            df = pd.read_csv(arquivo, sep=';', header=None, names=colunas, encoding='utf-8')
+            dfs[nome_var] = df
+            print(f"✅ DataFrame criado: {nome_var} ({len(df)} linhas)")
+        except Exception as e:
+            print(f"⚠️ Erro ao ler {arquivo}: {e}")
+
+    #--------------------------------------------------------
+    # Padronizar DATETIME e criar intervalo horário completo
+    #--------------------------------------------------------
+    for nome_var, df in dfs.items():
+        dfs[nome_var] = padronizar_horas(df, nome_var)
+
+    #--------------------------------------------------------
+    # Adicionar colunas de tempo (ANO, MES, DIA, HORA)
+    #--------------------------------------------------------
+    for nome_var in dfs:
+        dfs[nome_var] = adicionar_colunas_data(dfs[nome_var])
+        print(f"✅ Colunas de tempo adicionadas: {nome_var}")
+
+    #--------------------------------------------------------
+    # Geração dos arquivos QAQC (usa funções já existentes)
+    #--------------------------------------------------------
+    gerar_arquivos_estacoes_poluentes_PB(dfs, UF_estacoes, df_cod_pol, pasta_saida)
+
+    print("\n✅ Processamento completo para PB finalizado com sucesso!")
+# Função MS
+
+def carregar_estacoes(caminho_estacoes):
+    """Carrega CSV de estações e retorna dataframe com ID_MMA e ID_OEMA"""
+    UF_estacoes = pd.read_csv(caminho_estacoes, sep=',', dtype=str)
+    UF_ID_MMA = UF_estacoes[['ID_MMA','ID_OEMA']].copy()
+    return UF_ID_MMA
+
+def carregar_codigos_poluentes(caminho_codigos):
+    """Carrega CSV de códigos de poluentes e remove coluna NOME_TEXTO se existir"""
+    df_cod_pol = pd.read_csv(caminho_codigos, sep=',', dtype=str)
+    df_cod_pol = df_cod_pol.drop(columns=['NOME_TEXTO'], errors='ignore')
+    return df_cod_pol
+
+def ler_dados_brutos(pasta):
+    """Lê todos CSVs de uma pasta e concatena em um único dataframe"""
+    arquivos = glob.glob(os.path.join(pasta, "*.csv"))
+    lista_dfs = []
+    for caminho in arquivos:
+        with open(caminho, 'r', encoding='utf-8', errors='ignore') as f:
+            amostra = f.read(2048)
+            f.seek(0)
+            try:
+                delimitador = csv.Sniffer().sniff(amostra).delimiter
+            except:
+                delimitador = ';'
+        df_temp = pd.read_csv(caminho, sep=delimitador, dtype=str)
+        lista_dfs.append(df_temp)
+        print(f"✅ Lido: {os.path.basename(caminho)} ({len(df_temp)} linhas)")
+    df = pd.concat(lista_dfs, ignore_index=True)
+    print(f"\n✅ Base combinada: {len(df)} linhas\n")
+    return df
+
+def padronizar_datetime_por_estacao(df):
+    """Cria coluna DATETIME contínua por estação e poluente"""
+    dfs_resultado = []
+    for estacao, df_est in df.groupby('Estação'):
+        for poluente, df_pol in df_est.groupby('Sigla'):
+            df_temp = df_pol.copy()
+            df_temp['DATETIME'] = pd.to_datetime(df_temp['Data'] + ' ' + df_temp['Hora'], errors='coerce')
+            df_temp = df_temp.dropna(subset=['DATETIME'])
+            df_temp = df_temp.drop_duplicates(subset='DATETIME')
+            df_temp = df_temp.set_index('DATETIME')
+            all_hours = pd.date_range(start=df_temp.index.min(), end=df_temp.index.max(), freq='h')
+            df_temp = df_temp.reindex(all_hours).reset_index().rename(columns={'index': 'DATETIME'})
+            df_temp['ANO'] = df_temp['DATETIME'].dt.year
+            df_temp['MES'] = df_temp['DATETIME'].dt.month
+            df_temp['DIA'] = df_temp['DATETIME'].dt.day
+            df_temp['HORA'] = df_temp['DATETIME'].dt.hour
+            df_temp['Estação'] = estacao
+            df_temp['Sigla'] = poluente
+            dfs_resultado.append(df_temp)
+    df_final = pd.concat(dfs_resultado, ignore_index=True)
+    return df_final
+
+def rectify_MS(path):
+    import os
+    import pandas as pd
+    import numpy as np
+
+    caminho_estacoes = '/home/nobre/Notebooks/RQAR_2025_book/data/DADOS_ESTACOES/MS_estacoes.csv'
+    caminho_codigos = '/home/nobre/Notebooks/RQAR_2025_book/data/dicionarios/CODIGO_POLUENTES.csv'
+    pasta_dados = '/home/nobre/Notebooks/RQAR_2025_book/data/DADOS_BRUTOS/MS'
+    pasta_saida = '/home/nobre/Notebooks/RQAR_2025_book/data/MQAr'
+    os.makedirs(pasta_saida, exist_ok=True)
+
+    # Carregar dados usando funções externas
+    UF_estacoes = carregar_estacoes(caminho_estacoes)
+    df_cod_pol = carregar_codigos_poluentes(caminho_codigos)
+    df_MS = ler_dados_brutos(pasta_dados)
+    df_MS = padronizar_datetime_por_estacao(df_MS)
+
+    # ---------------------------------------------------------
+    # Conteúdo de gerar_arquivos_por_estacao() incorporado
+    # ---------------------------------------------------------
+    for estacao in df_MS['Estação'].dropna().unique():
+        df_est = df_MS[df_MS['Estação'] == estacao].copy()
+        id_mma = UF_estacoes.loc[UF_estacoes['ID_OEMA'].str.lower() == estacao.lower(), 'ID_MMA']
+        if id_mma.empty:
+            print(f"⚠️ ID_MMA não encontrado para estação: {estacao}")
+            continue
+        id_mma = id_mma.iloc[0]
+
+        for sigla_pol in df_est['Sigla'].dropna().unique():
+            df_pol = df_est[df_est['Sigla'] == sigla_pol].copy()
+            linha_pol = df_cod_pol[df_cod_pol['POLUENTE'].str.upper().str.strip() == sigla_pol.upper()]
+            if linha_pol.empty:
+                print(f"⚠️ Poluente {sigla_pol} não encontrado")
+                continue
+
+            cod_pol = linha_pol['COD_POLUENTE'].iloc[0].zfill(3)
+            nome_pasta = linha_pol['NOME_PASTA'].iloc[0]
+            pasta_destino = os.path.join(pasta_saida, nome_pasta)
+            os.makedirs(pasta_destino, exist_ok=True)
+
+            # Criar df_saida com QAQC_INTERNO e QAQC_MMA
+            df_saida = pd.DataFrame({
+                'DATETIME': df_pol['DATETIME'],
+                'ANO': df_pol['ANO'],
+                'MES': df_pol['MES'],
+                'DIA': df_pol['DIA'],
+                'HORA': df_pol['HORA'],
+                'VALOR_ORIGINAL': df_pol.get('Valor Medido', np.nan),
+                'UNIDADE': df_pol.get('Unidade', ''),
+                'QAQC_INTERNO': df_pol.get('Valor Medido', np.nan),
+                'QAQC_MMA': df_pol.get('Valor Medido', np.nan)
+            })
+
+            # Chama função QAQC externa
+            df_saida = create_QAQCMMA_VALOR(df_saida, sigla_pol)
+
+            # Salvar CSV
+            nome_arquivo = f"{id_mma}ND{cod_pol}.csv"
+            caminho_saida = os.path.join(pasta_destino, nome_arquivo)
+            df_saida.to_csv(caminho_saida, index=False, sep=',', encoding='utf-8-sig')
+            print(f"💾 Criado: {caminho_saida}")
+
+    print("\n✅ Processamento de MS concluído!")
+
+
+
+#%% Função Acre (PurpleAir) — versão final com detecção de codificação
+
+def rectify_AC(path):
+    """
+    Processa arquivos CSV semanais do Acre (PurpleAir), unindo todos os anos
+    e gerando um único arquivo por estação com dados horários padronizados.
+    """
+    import glob, os, re
+    import pandas as pd
+    import numpy as np
+    from collections import defaultdict
+    from datetime import timedelta
+
+    # ======== Localiza arquivos CSV (todos os anos) ========
+    arquivos = sorted(glob.glob(os.path.join(path, '*.csv')))
+    if not arquivos:
+        raise FileNotFoundError(f"Nenhum arquivo CSV encontrado em {path}")
+
+    print(f"📂 {len(arquivos)} arquivos encontrados em {path}")
+
+    # ======== Lê todos os arquivos e concatena ========
+    df_total = pd.DataFrame()
+    for arq in arquivos:
+        print(f"🔹 Lendo: {os.path.basename(arq)}")
+        try:
+            # Tenta UTF-8 primeiro
+            df = pd.read_csv(arq, encoding='utf-8')
+        except UnicodeDecodeError:
+            # Se falhar, tenta Latin-1 (Windows-1252)
+            print(f"⚠️ Arquivo {os.path.basename(arq)} não está em UTF-8, tentando Latin-1...")
+            df = pd.read_csv(arq, encoding='latin1')
+        except Exception as e:
+            print(f"❌ Erro ao ler {os.path.basename(arq)}: {e}")
+            continue
+
+        # Remove coluna SEMANA se existir
+        if 'SEMANA' in df.columns:
+            df = df.drop(columns=['SEMANA'])
+
+        # Converte DATA para datetime
+        df['DATA'] = pd.to_datetime(df['DATA'], errors='coerce')
+        df = df.dropna(subset=['DATA'])
+
+        # Acumula
+        df_total = pd.concat([df_total, df], ignore_index=True)
+
+    # ======== Remove duplicados e ordena ========
+    df_total = df_total.drop_duplicates(subset=['DATA']).sort_values('DATA')
+
+    # ======== Identifica estações (todas as colunas menos DATA) ========
+    estacoes = [c for c in df_total.columns if c != 'DATA']
+    print(f"📡 Estações detectadas: {len(estacoes)}")
+
+    # ======== Dicionário de DataFrames finais ========
+    dict_estacoes = defaultdict(lambda: pd.DataFrame())
+
+    for estacao in estacoes:
+        print(f"⚙️ Processando estação: {estacao}")
+        df_est = df_total[['DATA', estacao]].copy()
+        df_est = df_est.rename(columns={estacao: 'VALOR'})
+        df_est['VALOR'] = pd.to_numeric(df_est['VALOR'], errors='coerce')
+
+        # Expande valores diários em 24 registros horários
+        registros = []
+        for _, row in df_est.iterrows():
+            if pd.isna(row['VALOR']):
+                continue
+            for hora in range(24):
+                registros.append({
+                    'DATETIME': row['DATA'] + timedelta(hours=hora),
+                    'VALOR': row['VALOR']
+                })
+        df_horario = pd.DataFrame(registros)
+        if df_horario.empty:
+            continue
+
+        # Garante frequência horária completa
+        df_horario = df_horario.set_index('DATETIME').sort_index()
+        horas_completas = pd.date_range(df_horario.index.min(), df_horario.index.max(), freq='H')
+        df_horario = df_horario.reindex(horas_completas)
+        df_horario['VALOR'] = pd.to_numeric(df_horario['VALOR'], errors='coerce')
+
+        df_horario['UNIDADE'] = 'µg/m³'
+        df_horario['QAQC_INTERNO'] = np.where(df_horario['VALOR'].isna(), 'Inválido', 'OK')
+
+        # Colunas auxiliares
+        df_horario['ANO'] = df_horario.index.year
+        df_horario['MES'] = df_horario.index.month
+        df_horario['DIA'] = df_horario.index.day
+        df_horario['HORA'] = df_horario.index.hour
+
+        df_horario = df_horario.reset_index().rename(columns={'index': 'DATETIME'})
+        df_horario = df_horario[['DATETIME','ANO','MES','DIA','HORA','VALOR','UNIDADE','QAQC_INTERNO']]
+
+        dict_estacoes[estacao] = df_horario
+
+    # ======== Criação de IDs únicos ========
+    primeiros_valores = {}
+    for estacao, df in dict_estacoes.items():
+        if not df['VALOR'].isna().all() and (df['VALOR'] > 0).any():
+            linha_valida = df[df['VALOR'].notna() & (df['VALOR'] > 0)].iloc[0]
+            primeiros_valores[estacao] = linha_valida['DATETIME']
+
+    sorted_items = sorted(primeiros_valores.items(), key=lambda x: (x[1], x[0]))
+    codigo_estacao_AC = {nome: f"AC{i:04d}" for i, (nome, _) in enumerate(sorted_items, start=1)}
+
+    # ======== Exportação dos CSVs (1 arquivo por estação) ========
+    for estacao, df in dict_estacoes.items():
+        est_id = codigo_estacao_AC.get(estacao, 'AC9999')
+        pol = 'MP25'  # PurpleAir → PM2.5
+
+        cod_pol = tabela_pols.loc[tabela_pols['POLUENTE'] == pol, 'COD_POLUENTE'].values[0]
+        nome_pasta = tabela_pols.loc[tabela_pols['COD_POLUENTE'] == int(cod_pol), 'NOME_PASTA'].values[0]
+
+        df = create_QAQCMMA_VALOR(df, nome_pasta)
+        out_path = f'/home/nobre/Notebooks/RQAR_2025_book/data/MQAr/{nome_pasta}/{est_id}RS{int(cod_pol):03d}.csv'
+        df.to_csv(out_path, index=False)
+        print(f"💾 {out_path}: {len(df)} linhas salvas")
+
+    # ======== Mapeamento e retorno ========
+    df_ids = pd.DataFrame({
+        'ID_OEMA': codigo_estacao_AC.keys(),
+        'ID_MMA': list(codigo_estacao_AC.values())
+    })
+
+    print(f"\n✅ {len(df_ids)} estações processadas no Acre (PurpleAir, 3 anos combinados)")
+    print("\n📋 Mapeamento Estação → Código MMA:")
+    for k, v in codigo_estacao_AC.items():
+        print(f"{v} → {k}")
+
+    return df_ids
+
+#%% MAIN
 funcoes = {
-    'MG': rectify_MG,
+    'MG': rectify_MG, 
     'ES': rectify_ES,
     'SP': rectify_SP,
     'RJ': rectify_RJ,
-    
+     
     'SC': rectify_SC,
     'RS': rectify_RS,
     'PR': rectify_PR,
     
     'MA': rectify_MA,
     'BA': rectify_BA,
-
+    'PE': rectify_PE,
+    'CE': rectify_CE,
+    'PB': rectify_PB,
+    
     'MT': rectify_MT,
-    'DF': rectify_DF
+    'DF': rectify_DF,
+    'MS': rectify_MS,
+    
+    'RR': rectify_RR,
+    'AC': rectify_AC,
+
+    
 }
 
-lista_estados = ['DF']
+lista_estados = ['ES']
 
 tabela_ids = pd.read_csv('/home/nobre/Notebooks/RQAR_2025_book/data/Monitoramento_QAr_BR.csv')
 tabela_pols = pd.read_csv('/home/nobre/Notebooks/RQAR_2025_book/data/dicionarios/CODIGO_POLUENTES.csv')
@@ -1980,4 +3451,7 @@ for estado in lista_estados:
 
     df_ids = funcoes[estado](path)
     
-    create_df_estacao(estado,df_ids)
+    create_df_estacao(estado,df_ids)##!/usr/bin/env python3
+
+
+

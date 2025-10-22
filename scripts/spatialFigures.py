@@ -59,6 +59,7 @@ columns_names = {
     'Referencia':   'Referência',
     'REFERENCIA':   'Referência',
     'REFERÊNCIA':   'Referência',
+    'N':   'Não identificada',
     
     
 }
@@ -214,6 +215,14 @@ def spatial_rede_monitoramento(columnRef,columnsToltip,cmap):
     # Cria uma coluna com número de poluentes medidos
     aqmDataGrouped['N° Poluentes Medidos'] = aqmDataGrouped['POLUENTE'].apply(lambda x: len(x.split(',')))
 
+        # Forçar conversão numérica e eliminar valores inválidos
+    aqmDataGrouped['LONGITUDE'] = pd.to_numeric(aqmDataGrouped['LONGITUDE'], errors='coerce')
+    aqmDataGrouped['LATITUDE']  = pd.to_numeric(aqmDataGrouped['LATITUDE'], errors='coerce')
+    
+    # Remover linhas com coordenadas ausentes
+    aqmDataGrouped = aqmDataGrouped.dropna(subset=['LONGITUDE', 'LATITUDE'])
+
+
     # Transforma em geodataframe
     gdf = gpd.GeoDataFrame(
         aqmDataGrouped, geometry=gpd.points_from_xy(aqmDataGrouped.LONGITUDE, aqmDataGrouped.LATITUDE), crs="EPSG:4326"
@@ -225,11 +234,12 @@ def spatial_rede_monitoramento(columnRef,columnsToltip,cmap):
     #print(gdf.Categoria.unique().shape[0])
     if (gdf.Categoria.unique().shape[0]==3) & (columnRef=='Categoria'):
         # Original colormap
-        cmap = ListedColormap(["orange", "green"])
+        gdf.loc[gdf.Categoria=='N', 'Categoria'] = 'Não identificada'
+        cmap = ListedColormap(["orange",'gray', "green"])
         # Get the list of colors from the existing colormap
         colors = cmap.colors
         #cmap = cmap.append('gray')
-        colors.insert(0, 'gray')
+        #colors.insert(0, 'gray')
         cmap = ListedColormap(colors)
         
     # Extrai o centroide dos locais onde existe monitoramento para centralizar o mapa

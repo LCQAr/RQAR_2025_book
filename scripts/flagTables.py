@@ -76,6 +76,7 @@ columns_names = {
     'BASE_DADOS':   'Base de dados',
     
     
+    
 }
 # ---------------------------------Funções-----------------------------------------------
 
@@ -664,7 +665,13 @@ def table07():
     df_with_separators= df_with_separators.replace(0, '-')
     df_with_separators = columns_renamer(df_with_separators)
     df_with_separators = columns_renamer_csv(df_with_separators)
-    
+    # --- Correção antes de aplicar o estilo ---
+    df_with_separators = (
+        df_with_separators
+        .reset_index(drop=True)  # Garante índice único
+        .loc[:, ~df_with_separators.columns.duplicated()]  # Remove colunas duplicadas
+    )
+
     styled = (
         df_with_separators
         .style
@@ -888,7 +895,8 @@ def flagTable(columnsSelector):
     aqmData = pd.read_csv(rootPath+'/data/Monitoramento_QAr_BR.csv')
     aqmData['ID_OEMA'] = aqmData['ID_OEMA'].str.replace(' ', '') 
     aqmData['POLUENTE'] = aqmData['POLUENTE'].str.upper()
-    aqmData['CATEGORIA'] = aqmData['CATEGORIA'].str.replace(' ', '') 
+    #aqmData['CATEGORIA'] = aqmData['CATEGORIA'].str.replace(' ', '') 
+    aqmData.loc[aqmData['CATEGORIA']=='N','CATEGORIA'] = 'Não identificada' 
 
     # Remove colunas com todos valores iguais a NaN
     #aqmData = aqmData.dropna(axis=1, how='all')

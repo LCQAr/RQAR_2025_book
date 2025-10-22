@@ -1,10 +1,10 @@
 # -*- coding: utf-8 -*-
 """
-Pipeline completo:
-1) Consolida shapefiles de setores censitários (Censo 2022) + CSV nacional (população v0001)
-2) Gera BR_setores_pop2022.gpkg com geometria + POP2022
-3) Calcula população atendida por buffers (A = por buffer; C = união da rede)
-4) Produz Tabela 13 (potencial vs. única) por UF e Brasil
+popUnderStationREP.py
+Funções para:
+1) Consolidar setores censitários + população
+2) Gerar buffers oficiais a partir do rep_espacial.csv
+3) Calcular população atendida por estação/poluente (REP_ESPACIAL)
 """
 
 import geopandas as gpd
@@ -14,23 +14,24 @@ import os
 import logging
 
 # ========================
-# Configurações
+# Configurações globais
 # ========================
-rootPath   = Path(os.path.dirname(os.getcwd()))
-SET_DIR    = rootPath / "data/setores_censitarios"
-OUTPUT_DIR = rootPath / "data/outputs"
+rootPath    = Path(os.path.dirname(os.getcwd()))
+SET_DIR     = rootPath / "data/setores_censitarios"
+OUTPUT_DIR  = rootPath / "data/outputs"
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
-CSV_ATTR   = SET_DIR / "BR_setores_CD2022.csv"
-GPKG_POP   = SET_DIR / "BR_setores_pop2022.gpkg"
-BUFFER_PATH = OUTPUT_DIR / "buffers_var.gpkg"
-USO_PATH    = OUTPUT_DIR / "uso_solo_varbuf.csv"
-TAB13_PATH  = OUTPUT_DIR / "tabela13_pop_uf.csv"
+CSV_ATTR    = SET_DIR / "BR_setores_CD2022.csv"
+GPKG_POP    = SET_DIR / "BR_setores_pop2022.gpkg"
 
-POP_COL = "v0001"
+BUFFER_PATH = OUTPUT_DIR / "buffers_var.gpkg"
+REP_CSV     = rootPath / "data/rep_espacial/outputs/rep_espacial.csv"
+
+POP_COL     = "v0001"
+
 
 # ========================
-# Passo 1 – Consolidar setores + população
+# Consolida setores + população
 # ========================
 def consolidar_setores(csv_path=CSV_ATTR, shp_dir=SET_DIR, out_path=GPKG_POP):
     print("🔄 Consolidando setores com população...")
@@ -47,7 +48,6 @@ def consolidar_setores(csv_path=CSV_ATTR, shp_dir=SET_DIR, out_path=GPKG_POP):
         if not shp_files:
             continue
         shp = shp_files[0]
-        print(f" - {shp.name}")
         setores = gpd.read_file(shp)
         setores["CD_SETOR"] = setores["CD_SETOR"].astype(str)
 
@@ -70,22 +70,56 @@ def consolidar_setores(csv_path=CSV_ATTR, shp_dir=SET_DIR, out_path=GPKG_POP):
 
 
 # ========================
-# Passo 2 – População por buffer (A) ou por união (C)
+# Gera buffers SEMPRE do rep_espacial.csv
+# ========================
+def ensure_buffers_from_rep(rep_csv=REP_CSV, out_buffer_path=BUFFER_PATH):
+    print("🔄 Gerando buffers oficiais a partir do rep_espacial.csv...")
+
+    rep = pd.read_csv(rep_csv)
+    needed = {"LATITUDE", "LONGITUDE", "REP_ESPACIAL", "ID_OEMA"}
+    missing = needed - set(rep.columns)
+    if missing:
+        raise ValueError(f"Faltam colunas no rep_espacial.csv: {missing}")
+
+    rep["ID_OEMA"] = rep["ID_OEMA"].astype(str)
+
+    gdf_pts = gpd.GeoDataFrame(
+        rep.copy(),
+        geometry=gpd.points_from_xy(rep["LONGITUDE"], rep["LATITUDE"]),
+        crs="EPSG:4326"
+    ).to_crs(5880)
+
+    gdf_pts["geometry"] = [
+        geom.buffer(float(dist)) if pd.notna(dist) and float(dist) > 0 else None
+        for geom, dist in zip(gdf_pts.geometry, gdf_pts["REP_ESPACIAL"])
+    ]
+
+    gdf_buf = gdf_pts.to_crs(4326)
+    gdf_buf = gdf_buf.reset_index(drop=False).rename(columns={"index": "ID"})
+
+    keep_cols = ["ID", "ID_OEMA", "POLUENTE", "UF", "REP_ESPACIAL", "LATITUDE", "LONGITUDE", "geometry"]
+    existing = [c for c in keep_cols if c in gdf_buf.columns]
+    gdf_out = gdf_buf[existing].copy()
+
+    gdf_out.to_file(out_buffer_path, driver="GPKG")
+    print(f"✅ Buffers oficiais salvos em {out_buffer_path} ({len(gdf_out)} registros)")
+    return out_buffer_path
+
+
+# ========================
+# Calcula população atendida
 # ========================
 def popUnderStationREP(
     setor_path=GPKG_POP,
     buffer_path=BUFFER_PATH,
-    stations_file=rootPath / "data/rep_espacial/outputs/rep_espacial.csv",
     pop_col="POP2022",
     method="A",
     output_csv=OUTPUT_DIR / "populacao_varbuf.csv"
 ):
     """
     Calcula a população atendida usando REP_ESPACIAL como raio de buffer.
-
-    - Se buffers_var.gpkg não existir, cria buffers variáveis a partir do CSV de estações.
-    - Se BR_setores_pop2022.gpkg não existir, chama consolidar_setores().
-    - Retorna DataFrame com população por buffer (method="A") ou total (method="C").
+    - method="A": população por buffer
+    - method="C": população total pela união da rede
     """
     logging.getLogger("pyogrio._io").setLevel(logging.ERROR)
 
@@ -96,29 +130,8 @@ def popUnderStationREP(
 
     setores = gpd.read_file(setor_path).to_crs(5880)
 
-    # --- Garante buffers ---
-    if not Path(buffer_path).exists():
-        print("⚠️ Buffers não encontrados. Criando a partir do REP_ESPACIAL...")
-        stations = pd.read_csv(stations_file)
-
-        if not {"LATITUDE", "LONGITUDE", "REP_ESPACIAL"}.issubset(stations.columns):
-            raise ValueError("O arquivo de estações deve conter LATITUDE, LONGITUDE e REP_ESPACIAL.")
-
-        gdf = gpd.GeoDataFrame(
-            stations,
-            geometry=gpd.points_from_xy(stations["LONGITUDE"], stations["LATITUDE"]),
-            crs="EPSG:4326"
-        ).to_crs(5880)
-
-        gdf = gdf.to_crs(5880)  # projeta p/ CRS métrico
-        gdf["geometry"] = [
-            geom.buffer(float(dist)) if pd.notna(dist) and dist > 0 else None
-            for geom, dist in zip(gdf.geometry, gdf["REP_ESPACIAL"])
-        ]
-
-        gdf.to_file(buffer_path, driver="GPKG")
-        print(f"✅ Buffers salvos em {buffer_path}")
-
+    # --- Sempre recria buffers oficiais ---
+    buffer_path = ensure_buffers_from_rep()
     buffers = gpd.read_file(buffer_path).to_crs(5880)
 
     if "ID" not in buffers.columns:
@@ -162,71 +175,9 @@ def popUnderStationREP(
         raise ValueError("method deve ser 'A' ou 'C'")
 
 
-
-
-# ========================
-# Passo 3 – Tabela 13 (com A e C)
-# ========================
-def tabela13(
-    uso_path=USO_PATH,
-    pop_path=OUTPUT_DIR / "populacao_varbuf.csv",
-    setor_path=GPKG_POP,
-    buffer_path=BUFFER_PATH,
-    out_path=TAB13_PATH
-):
-    print("🔄 Gerando Tabela 13...")
-
-    uso = pd.read_csv(uso_path)
-    pop = pd.read_csv(pop_path)
-    df = uso.merge(pop, on="ID", how="left")
-
-    # --- Potencial (A)
-    estacoes_por_uf = df.groupby("UF")["ID"].nunique()
-    pop_por_uf_A = df.groupby("UF")["POP_BUFFER"].sum()
-    uso_pred_uf = df.groupby("UF")["GRUPO_PRED_VAR"].agg(lambda x: x.mode().iloc[0] if not x.mode().empty else None)
-
-    # --- Única (C), calculada por UF
-    setores = gpd.read_file(setor_path).to_crs(5880)
-    buffers = gpd.read_file(buffer_path).to_crs(5880)
-
-    pop_unica = {}
-    for uf, uf_buffers in buffers.groupby("UF"):
-        buffer_union = uf_buffers.unary_union
-        buffer_union_gdf = gpd.GeoDataFrame(geometry=[buffer_union], crs=buffers.crs)
-        inter = gpd.overlay(setores[setores.CD_UF == uf], buffer_union_gdf, how="intersection")
-        setores["AREA_SETOR"] = setores.geometry.area
-        area_total_setor = setores.groupby("CD_SETOR")["AREA_SETOR"].sum()
-        inter["frac_area"] = inter.geometry.area / inter["CD_SETOR"].map(area_total_setor)
-        inter["pop_frac"]  = inter["POP2022"] * inter["frac_area"]
-        pop_unica[uf] = inter["pop_frac"].sum().round(0).astype(int)
-
-    tabela = pd.DataFrame({
-        "UF": estacoes_por_uf.index,
-        "N_ESTACOES": estacoes_por_uf.values,
-        "POP_ATENDIDA_POTENCIAL": pop_por_uf_A.round(0).astype("int64"),
-        "POP_ATENDIDA_UNICA": [pop_unica.get(uf, 0) for uf in estacoes_por_uf.index],
-        "USO_PREDOMINANTE": uso_pred_uf.values
-    })
-
-    # Linha Brasil
-    brasil = pd.DataFrame({
-        "UF": ["BR"],
-        "N_ESTACOES": [estacoes_por_uf.sum()],
-        "POP_ATENDIDA_POTENCIAL": [int(pop_por_uf_A.sum().round(0))],
-        "POP_ATENDIDA_UNICA": [sum(pop_unica.values())],
-        "USO_PREDOMINANTE": ["—"]
-    })
-    tabela = pd.concat([tabela, brasil], ignore_index=True)
-
-    tabela.to_csv(out_path, index=False, encoding="utf-8")
-    print(f"✅ Tabela 13 salva em {out_path}")
-    return tabela
-
-
 # ========================
 # Execução direta
 # ========================
 if __name__ == "__main__":
     consolidar_setores()
-    popUnderStation(method="A")
-    tabela13()
+    popUnderStationREP(method="A")

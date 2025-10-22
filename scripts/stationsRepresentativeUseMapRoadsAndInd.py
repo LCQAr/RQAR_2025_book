@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 import geopandas as gpd
 import folium
 from folium.plugins import MiniMap, Fullscreen
@@ -25,7 +26,7 @@ def build_map_station_nearest_industry_by_pollutant(
 
     Retorna:
       - se save=False: (mapa, None)
-      - se save=True: (mapa, caminho_do_html)
+      - se save=True: (mapa, caminho_do_html_relativo_para_IFrame)
     """
     rootPath = Path(rootPath or os.path.dirname(os.getcwd()))
     stations_file = rootPath / "data/rep_espacial/outputs/estacoes_completa.gpkg"
@@ -132,7 +133,7 @@ def build_map_station_nearest_industry_by_pollutant(
             if pd.isna(rep_val) or rep_val <= 0:
                 continue
 
-            # Estação
+            # Estação (círculo = buffer real)
             folium.Circle(
                 location=(g.y, g.x),
                 radius=float(rep_val),
@@ -245,13 +246,14 @@ def build_map_station_nearest_industry_by_pollutant(
     # === Salvar em HTML (opcional) ===
     output_file = None
     if save:
-        out_dir = rootPath / "data" / "outputs" / "mapas"
+        out_dir = rootPath / "_static" / "representatividade"
         out_dir.mkdir(parents=True, exist_ok=True)
 
-        timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M")
-        output_file = out_dir / f"mapa_estacoes_industrias_{timestamp}.html"
-
+        output_file = out_dir / "mapa_estacoes_industrias.html"
         m.save(str(output_file))
-        print(f"Mapa salvo em: {output_file}")
 
-    return m, output_file
+        # caminho relativo (para usar em IFrame dentro de capítulos)
+        rel_path = "../_static/representatividade/mapa_estacoes_industrias.html"
+        return m, rel_path
+
+    return m, None
