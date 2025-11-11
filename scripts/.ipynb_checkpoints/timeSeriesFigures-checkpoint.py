@@ -46,7 +46,6 @@ def tratar_dados(df):
     # Transforma valores negativos em NaN
     df.loc[df['VALOR'] < 0, 'VALOR'] = np.nan
     df['DATETIME'] = pd.to_datetime(df['DATETIME'], errors='coerce', infer_datetime_format=True)
-    df['DATETIME'] = pd.to_datetime(df['DATETIME']).copy()
     time_range = pd.date_range(df['DATETIME'].min(), df['DATETIME'].max(), freq='h').to_series(name='DATETIME')
     df = pd.merge(time_range, df,how='left')
     #df = df.set_index('datetime', drop=False)
@@ -279,8 +278,8 @@ def iterative_timeseries(df,row):
 
     # Update layout for better presentation
     fig.update_layout(
-        title=dict(text='ID_MMA: '+row.ID_MMA_COMPLETO+ ' - ID_OEMA: '+row.ID_OEMA+' - Cidade: '+row.CIDADE+
-                   '<br> Poluente:'+row.POLUENTE +
+        title=dict(text='ID_MMA: '+str(row.ID_MMA_COMPLETO)+ ' - ID_OEMA: '+str(row.ID_OEMA)+' - Cidade: '+str(row.CIDADE)+
+                   '<br> Poluente:'+str(row.POLUENTE) +
                    '<br> Início: '+str(row.INICIO) + '   Fim: '+str(row.FIM)+
                    '<br> Faixa =  5°-95° percentil - Linha = 50° percentil'),
             font=dict(

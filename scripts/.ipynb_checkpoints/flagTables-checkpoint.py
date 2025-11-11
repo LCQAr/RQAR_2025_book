@@ -74,7 +74,14 @@ columns_names = {
     'REFERENCIA':   'Referência',
     'REFERÊNCIA':   'Referência',
     'BASE_DADOS':   'Base de dados',
-    
+    'MODELO':       'Modelo',
+    'Nao declarado': 'Não declarado',
+    'Coleta 2025': 'Consulta 2025',
+    'Consulta 2024': 'Consulta 2025',
+    'Coleta interna ': 'Coleta interna',
+    ' Coleta interna': 'Coleta interna',
+    'Coleta  interna': 'Coleta interna',
+    'Coleta interna': 'Coleta interna'
     
     
 }
@@ -343,11 +350,12 @@ def table01():
     
     # Lendo o csv
     aqmData = pd.read_csv(rootPath+'/data/Monitoramento_QAr_BR.csv')
-    
     # Selecionando apenas Estado e Fonte e removendo redundâncias
+    aqmData['FONTE'] = aqmData['FONTE'].replace(np.nan, 'Coleta interna')
+    aqmData = aqmData.replace(columns_names)
     aqmData = aqmData.drop_duplicates(subset=['UF', 'FONTE'])
     #aqmData[np.isnan(aqmData['FONTE'])] = 'Coleta interna'
-    aqmData['FONTE'] = aqmData['FONTE'].replace(np.nan, 'Coleta interna', regex=True)
+    
     # Agrupamento por estado quando tivermos mais de uma fonte de informação
     aqmData = aqmData.groupby('UF').agg({
         'FONTE': lambda x: ', '.join(x),
@@ -363,7 +371,7 @@ def table01():
 
     # Atualizando o df com todos os estados
     aqmData = df_index.merge(aqmData, left_on='UF', right_on='UF',how='left')
-    
+    aqmData = aqmData[aqmData["UF"] != "BR"]
     # Remove NaN
     aqmData['Realiza monitoramento?'][aqmData['Realiza monitoramento?'].isna()] = 'Não'
     aqmData['FONTE'][aqmData['FONTE'].isna()] = '-'
@@ -384,6 +392,7 @@ def table01():
     aqmDisplay = aqmDisplay.rename(columns={"FLAG": "", "UF": "UF",'Realiza monitoramento?':'Realiza monitoramento?',"FONTE": "Fonte","REGIAO": "Região"})
     
     rows = []
+    
 
     for group, data in aqmDisplay.groupby('Região', sort=False):
         rows.append({'': '', 'UF': group, 'Realiza monitoramento?': '', 'Fonte': '','Região': ''})  
@@ -423,10 +432,10 @@ def table05():
     aqmData = pd.read_csv(rootPath+'/data/Monitoramento_QAr_BR.csv')
     #print(aqmData.columns)
     # Selecionando apenas estações ativas
-    aqmData = aqmData[aqmData['STATUS']=='Ativa']
+    #aqmData = aqmData[aqmData['STATUS']=='Ativa']
     
     aqmData['ID_OEMA'] = aqmData['ID_OEMA'].str.replace(' ', '') 
-    aqmData['CATEGORIA'] = aqmData['CATEGORIA'].str.replace(' ', '') 
+    #aqmData['CATEGORIA'] = aqmData['CATEGORIA'].str.replace(' ', '') 
     #aqmData['CATEGORIA'] = aqmData['CATEGORIA'].str.replace(' ', '') 
     
     # Selecionando apenas Estado e Fonte e removendo redundâncias
@@ -459,46 +468,28 @@ def table05():
     aqmData = aqmData.sort_values('ORDEM').drop(columns='ORDEM').reset_index(drop=True)
     #print(aqmData)
 
-    try:
-        aqmDisplay = aqmData[['FLAG','UF', 'Indicativa', 'Referencia','REGIAO']]
-        aqmDisplay = columns_renamer(aqmDisplay)
+
+    aqmDisplay = aqmData[['FLAG','UF', 'Indicativa', 'Referencia','Nao declarado','REGIAO']]
+    aqmDisplay = columns_renamer(aqmDisplay)
+
+    aqmDisplay = aqmDisplay.fillna(0)
+    aqmDisplay['Indicativa'] = aqmDisplay['Indicativa'].astype(int)
+    aqmDisplay['Referência'] = aqmDisplay['Referência'].astype(int)
+    aqmDisplay['Não declarado'] = aqmDisplay['Não declarado'].astype(int)
+    rows = []
+
+    #print(aqmDisplay.groupby('Região'))
     
-        aqmDisplay = aqmDisplay.fillna(0)
-        aqmDisplay['Indicativa'] = aqmDisplay['Indicativa'].astype(int)
-        aqmDisplay['Referência'] = aqmDisplay['Referência'].astype(int)
-        rows = []
+    for group, data in aqmDisplay.groupby('Região', sort=False):
+        rows.append({'': '', 'UF': group, 'Indicativa': '', 'Referência': '','Não declarado':'','Região':''})  
+        rows.extend(data.to_dict('records'))
+        # Add separator row: None or '' to create empty row
+        rows.append({'': '', 'UF': '','Indicativa': '', 'Referência':'','Não declarado':'', 'Região':''})  
     
-        #print(aqmDisplay.groupby('Região'))
-        
-        for group, data in aqmDisplay.groupby('Região', sort=False):
-            rows.append({'': '', 'UF': group, 'Indicativa': '', 'Referência': '','Região':''})  
-            rows.extend(data.to_dict('records'))
-            # Add separator row: None or '' to create empty row
-            rows.append({'': '', 'UF': '','Indicativa': '', 'Referência':'', 'Região':''})  
-        
-        # Add a blank row at the beginning
-        blank_row = {'': '', 'UF': '', 'Indicativa': '', 'Referência':'', 'Região':''}
-        rows.insert(0, blank_row)
-    except:
-        aqmDisplay = aqmData[['FLAG','UF', 'Referencia','REGIAO']]
-        aqmDisplay = columns_renamer(aqmDisplay)
-    
-        aqmDisplay = aqmDisplay.fillna(0)
-        #aqmDisplay['Indicativa'] = aqmDisplay['Indicativa'].astype(int)
-        aqmDisplay['Referência'] = aqmDisplay['Referência'].astype(int)
-        rows = []
-    
-        #print(aqmDisplay.groupby('Região'))
-        
-        for group, data in aqmDisplay.groupby('Região', sort=False):
-            rows.append({'': '', 'UF': group, 'Referência': '','Região':''})  
-            rows.extend(data.to_dict('records'))
-            # Add separator row: None or '' to create empty row
-            rows.append({'': '', 'UF': '', 'Referência':'', 'Região':''})  
-        
-        # Add a blank row at the beginning
-        blank_row = {'': '', 'UF': '',  'Referência':'', 'Região':''}
-        rows.insert(0, blank_row)
+    # Add a blank row at the beginning
+    blank_row = {'': '', 'UF': '', 'Indicativa': '', 'Referência':'','Não declarado':'', 'Região':''}
+    rows.insert(0, blank_row)
+  
         
     df_with_separators = pd.DataFrame(rows)
     df_with_separators = df_with_separators.drop(columns=['Região'])
@@ -560,21 +551,22 @@ def table06():
     # Sort by region order and then by UF order
     aqmData = aqmData.sort_values('ORDEM').drop(columns='ORDEM').reset_index(drop=True)
     
-    aqmDisplay = aqmData[['FLAG','UF', 'Inativa', 'Ativa','REGIAO']]
-    aqmDisplay = aqmDisplay.rename(columns={"FLAG": "", "UF": "UF",'Inativa':'Inativa',"Ativa": "Ativa","REGIAO": "Região"})
+    aqmDisplay = aqmData[['FLAG','UF', 'Inativa', 'Ativa','Nao declarado','REGIAO']]
+    aqmDisplay = aqmDisplay.rename(columns={"FLAG": "", "UF": "UF",'Inativa':'Inativa',"Ativa": "Ativa",'Nao declarado':'Não declarado',"REGIAO": "Região"})
     aqmDisplay = aqmDisplay.fillna(0)
     aqmDisplay['Inativa'] = aqmDisplay['Inativa'].astype(int)
     aqmDisplay['Ativa'] = aqmDisplay['Ativa'].astype(int)
+    aqmDisplay['Não declarado'] = aqmDisplay['Não declarado'].astype(int)
     rows = []
 
     for group, data in aqmDisplay.groupby('Região', sort=False):
-        rows.append({'': '', 'UF': group, 'Inativa': '', 'Ativa': '','Região':''})  
+        rows.append({'': '', 'UF': group, 'Inativa': '', 'Ativa': '','Não declarado':'','Região':''})  
         rows.extend(data.to_dict('records'))
         # Add separator row: None or '' to create empty row
-        rows.append({'': '', 'UF': '','Inativa': '', 'Ativa':'', 'Região':''})  
+        rows.append({'': '', 'UF': '','Inativa': '', 'Ativa':'','Não declarado':'', 'Região':''})  
     
     # Add a blank row at the beginning
-    blank_row = {'': '', 'UF': '', 'Inativa': '', 'Ativa':'', 'Região':''}
+    blank_row = {'': '', 'UF': '', 'Inativa': '', 'Ativa':'','Não declarado':'', 'Região':''}
     rows.insert(0, blank_row)
         
     df_with_separators = pd.DataFrame(rows)
@@ -901,7 +893,10 @@ def flagTable(columnsSelector):
     # Remove colunas com todos valores iguais a NaN
     #aqmData = aqmData.dropna(axis=1, how='all')
     aqmData = aqmData.fillna('-')
-    remaining_columns = aqmData.columns[(aqmData.columns != 'POLUENTE') & (aqmData.columns != 'ID_MMA_COMPLETO') & (aqmData.columns != 'COD_POLUENTE')].tolist()
+    
+    remaining_columns = aqmData.columns[(aqmData.columns != 'POLUENTE') & (aqmData.columns != 'ID_MMA_COMPLETO') & (aqmData.columns != 'COD_POLUENTE') & 
+        (aqmData.columns != 'CALIBRACAO') & (aqmData.columns != 'ANOS_MONITORADOS')
+        & (aqmData.columns != 'INICIO') & (aqmData.columns != 'FIM') & (aqmData.columns != 'BASE_DADOS')].tolist()
     #print(remaining_columns)
     
     # Agrupamento por estado quando tivermos mais de uma fonte de informação
@@ -923,8 +918,159 @@ def flagTable(columnsSelector):
 
     # Seleciona as colunas para uso    
     aqmDataGrouped = aqmDataGrouped[columnsSelector]
+    aqmDataGrouped = aqmDataGrouped.replace('Nao declarado','Não declarado')
+    aqmDataGrouped = aqmDataGrouped.replace('-','Não declarado')
+    aqmDataGrouped = aqmDataGrouped.replace('Referencia','Referência')
+    return aqmDataGrouped
+
+def flagTable2(columnsSelector):
+
+    """
+    Generate a formatted DataFrame of air quality monitoring stations with flags and pollutant counts.
+
+    This function reads air quality monitoring data from a CSV file, cleans and processes it, aggregates
+    pollutants by station, and returns a customized DataFrame with selected columns. It also generates
+    an HTML image tag for each Brazilian state's flag and counts the number of pollutants measured at
+    each station.
+
+    Parameters
+    ----------
+    columnsSelector : list of str
+        A list of column names to include in the final output table. This should be a subset of the
+        columns in the processed DataFrame after renaming (e.g., ["FLAG", "UF", "ID_OEMA", ...]).
+
+    Returns
+    -------
+    pandas.DataFrame
+        A formatted DataFrame including selected columns, with added columns for flags and number of
+        pollutants measured. The DataFrame is ready for display in HTML or static reports.
+
+    Notes
+    -----
+    - The data is read from a file located at: `../data/Monitoramento_QAr_BR.csv`, relative to the current working directory.
+    - The column `POLUENTE` is aggregated by grouping over all other columns and combining the pollutant names.
+    - A flag image is generated per `UF` (federative unit) using the path `"../_static/bandeiras/{UF}.png"`.
+    - The number of pollutants per station is computed and stored in the column `"N° Poluentes Medidos"`.
+    - The function uses a global helper `columns_renamer()` to rename columns based on a predefined dictionary.
+    - Columns with all `NaN` values are removed before processing.
+    """
     
+    # Caminho para a pasta de dados
+    rootPath = os.path.dirname(os.getcwd())
+    
+    # Lendo o csv
+    aqmData = pd.read_csv(rootPath+'/data/Monitoramento_QAr_BR.csv')
+    aqmData['ID_OEMA'] = aqmData['ID_OEMA'].str.replace(' ', '') 
+    aqmData['POLUENTE'] = aqmData['POLUENTE'].str.upper()
+    #aqmData['CATEGORIA'] = aqmData['CATEGORIA'].str.replace(' ', '') 
+    aqmData.loc[aqmData['CATEGORIA']=='N','CATEGORIA'] = 'Não identificada' 
+
+    # Remove colunas com todos valores iguais a NaN
+    #aqmData = aqmData.dropna(axis=1, how='all')
+    aqmData = aqmData.fillna('-')
+    remaining_columns = aqmData.columns[(aqmData.columns != 'POLUENTE') & (aqmData.columns != 'ID_MMA_COMPLETO') & (aqmData.columns != 'COD_POLUENTE') & 
+        (aqmData.columns != 'ANOS_MONITORADOS')
+        & (aqmData.columns != 'INICIO') & (aqmData.columns != 'FIM')].tolist()
+    #print(remaining_columns)
+    
+    # Agrupamento por estado quando tivermos mais de uma fonte de informação
+    aqmDataGrouped = aqmData.groupby(remaining_columns).agg({
+        'POLUENTE': lambda x: ', '.join(x),
+    }).reset_index()
+    #print(aqmDataGrouped)
+    
+    #Create a new column with HTML img tag
+    aqmDataGrouped['FLAG'] = aqmDataGrouped['UF'].apply(
+        lambda uf: f'<img src= "../_static/bandeiras/{uf}.png" width="30">'
+    ).astype(str)
+
+     # Cria uma coluna com número de poluentes medidos
+    aqmDataGrouped['N° Poluentes Medidos'] = aqmDataGrouped['POLUENTE'].apply(lambda x: len(x.split(',')))
+    
+    #aqmDataGrouped = aqmDataGrouped[['FLAG','UF','ID_OEMA','LATITUDE','LONGITUDE','CATEGORIA','FUNCIONAMENTO','N° Poluentes Medidos', 'POLUENTE' ]]
+    aqmDataGrouped = columns_renamer(aqmDataGrouped)
+
+    # Seleciona as colunas para uso    
+    aqmDataGrouped = aqmDataGrouped[columnsSelector]
+    aqmDataGrouped = aqmDataGrouped.replace('Nao declarado','Não declarado')
+    aqmDataGrouped = aqmDataGrouped.replace('-','Não declarado')
+    aqmDataGrouped = aqmDataGrouped.replace('Referencia','Referência')
     return aqmDataGrouped
 
 
-    
+def flagTable3(columnsSelector):
+    """
+    Generate a formatted DataFrame of air quality monitoring stations with flags and pollutant counts.
+    """
+
+    import os
+    import pandas as pd
+
+    # Caminho para a pasta de dados
+    rootPath = os.path.dirname(os.getcwd())
+
+    # Lendo o CSV
+    aqmData = pd.read_csv(rootPath + '/data/Monitoramento_QAr_BR.csv')
+    aqmData['ID_OEMA'] = aqmData['ID_OEMA'].astype(str).str.replace(' ', '')
+    aqmData['POLUENTE'] = aqmData['POLUENTE'].astype(str).str.upper()
+    aqmData.loc[aqmData['CATEGORIA'] == 'N', 'CATEGORIA'] = 'Não identificada'
+
+    # Substitui NaN por hífen
+    aqmData = aqmData.fillna('-')
+
+    # === 🔧 Converte booleanos em texto Sim/Não ===
+    if 'BASE_DADOS' in aqmData.columns:
+        aqmData['BASE_DADOS'] = aqmData['BASE_DADOS'].replace({True: 'Sim', False: 'Não'})
+
+    # === Mantém a coluna BASE_DADOS no agrupamento ===
+    remaining_columns = aqmData.columns[
+        (aqmData.columns != 'POLUENTE') &
+        (aqmData.columns != 'ID_MMA_COMPLETO') &
+        (aqmData.columns != 'COD_POLUENTE') &
+        (aqmData.columns != 'CALIBRACAO') &
+        (aqmData.columns != 'ANOS_MONITORADOS') &
+        (aqmData.columns != 'INICIO') &
+        (aqmData.columns != 'FIM')
+    ].tolist()
+
+    # Agrupamento mantendo BASE_DADOS
+    aqmDataGrouped = aqmData.groupby(remaining_columns).agg({
+        'POLUENTE': lambda x: ', '.join(x),
+    }).reset_index()
+
+    # Cria coluna de bandeira
+    aqmDataGrouped['FLAG'] = aqmDataGrouped['UF'].apply(
+        lambda uf: f'<img src="../_static/bandeiras/{uf}.png" width="30">'
+    )
+
+    # Cria coluna com número de poluentes medidos
+    aqmDataGrouped['N° Poluentes Medidos'] = aqmDataGrouped['POLUENTE'].apply(lambda x: len(x.split(',')))
+
+    # Renomeia colunas conforme dicionário global
+    aqmDataGrouped = columns_renamer(aqmDataGrouped)
+
+    # === 🔧 Padroniza nome da coluna de base de dados ===
+    for col in aqmDataGrouped.columns:
+        if col.strip().lower() in ['base_dados', 'base de dados']:
+            aqmDataGrouped = aqmDataGrouped.rename(columns={col: 'Base de dados'})
+            break
+    if 'BASE_DADOS' in aqmDataGrouped.columns:
+        aqmDataGrouped = aqmDataGrouped.rename(columns={'BASE_DADOS': 'Base de dados'})
+
+    # === Ajuste de colunas existentes ===
+    missing_cols = [c for c in columnsSelector if c not in aqmDataGrouped.columns]
+    if missing_cols:
+        print(f"⚠️ Colunas ausentes ignoradas: {missing_cols}")
+        columnsSelector = [c for c in columnsSelector if c in aqmDataGrouped.columns]
+
+    # Seleciona colunas
+    aqmDataGrouped = aqmDataGrouped[columnsSelector]
+
+    # Correções de texto
+    aqmDataGrouped = aqmDataGrouped.replace({
+        'Nao declarado': 'Não declarado',
+        '-': 'Não declarado',
+        'Referencia': 'Referência'
+    })
+
+    return aqmDataGrouped

@@ -2,7 +2,8 @@
 """
 Created on Wed Sep 11 16:09:53 2024
 
-@author: rafab
+@author: r
+    """afab
 import scripts.stationsLandUse as stl
 import os, sys
 from pathlib import Path
@@ -70,7 +71,7 @@ GROUP_COLORS = {
 # Helpers
 # ------------------------------------------------
 def aggregate_land_use(df: pd.DataFrame, land_use_map: dict) -> pd.DataFrame:
-    """
+    """    """
     Agrega colunas por códigos MapBiomas nos GRUPOS definidos em land_use_map.
     Aceita colunas com nome int (1,3,4...) ou str ('1','3','4'...).
     Cria/atualiza colunas com os nomes dos grupos contendo a soma de áreas (m²).

@@ -5,19 +5,19 @@ format: jb-book
 
 root: intro
 parts:
-  - caption: Equipe
+  - caption: EQUIPE
     chapters:
     - file: mma
     - file: team
 
-  - caption: Documento
+  - caption: SUMÁRIO
     chapters:
     # 1 Apresentação - arquivo Markdown
     - file: chpt01/chpt01
       sections:
       - file: chpt01/sec01_1
       - file: chpt01/sec01_2
-    
+      - file: chpt01/sec01_3    
     
     # 2	Definições, padrões e parâmetros da qualidade do ar no Brasil - arquivo Markdown
     - file: chpt02/chpt02
@@ -54,8 +54,10 @@ parts:
           - file: chpt04/sec04_1_2
       - file: chpt04/sec04_2
       - file: chpt04/sec04_3
+        sections:
+          - file: chpt04/sec04_3_1
+          - file: chpt04/sec04_3_2
       - file: chpt04/sec04_4
-      - file: chpt04/sec04_5
 
     
     # 5	Perspectivas de ampliação da rede e medidas de gestão das fontes de poluição	- arquivo Markdown

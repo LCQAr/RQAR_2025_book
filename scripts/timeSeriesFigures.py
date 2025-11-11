@@ -278,8 +278,8 @@ def iterative_timeseries(df,row):
 
     # Update layout for better presentation
     fig.update_layout(
-        title=dict(text='ID_MMA: '+row.ID_MMA_COMPLETO+ ' - ID_OEMA: '+row.ID_OEMA+' - Cidade: '+row.CIDADE+
-                   '<br> Poluente:'+row.POLUENTE +
+        title=dict(text='ID_MMA: '+str(row.ID_MMA_COMPLETO)+ ' - ID_OEMA: '+str(row.ID_OEMA)+' - Cidade: '+str(row.CIDADE)+
+                   '<br> Poluente:'+str(row.POLUENTE) +
                    '<br> Início: '+str(row.INICIO) + '   Fim: '+str(row.FIM)+
                    '<br> Faixa =  5°-95° percentil - Linha = 50° percentil'),
             font=dict(

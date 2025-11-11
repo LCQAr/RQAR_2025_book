@@ -3,11 +3,15 @@
 
 title: Relatório Anual de Acompanhamento da Qualidade do Ar - 2025
 author: MMA
-logo: media/images/LOGO3.jpg
+logo: media/images/Logo_RQAr.png
 
 # Execute notebooks during build
 execute:
-  execute_notebooks: auto 
+  execute_notebooks: auto
+  timeout: 600          # tempo máximo por célula (segundos)
+  allow_errors: true     # permite continuar o build mesmo com avisos
+  max_output_size: 100000000  # aumenta limite de tamanho do output (~10 MB)
+
   
 # LaTeX PDF output filename
 latex:

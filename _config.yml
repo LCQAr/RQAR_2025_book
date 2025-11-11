@@ -3,12 +3,29 @@
 
 title: Relatório Anual de Acompanhamento da Qualidade do Ar - 2025
 author: MMA
-logo: media/images/LOGO3.jpg
+logo: media/images/Logo_RQAr.png
 
 # Execute notebooks during build
 execute:
-  execute_notebooks: auto 
-  
+  execute_notebooks: auto
+  timeout: 600          # tempo máximo por célula (segundos)
+  allow_errors: true     # permite continuar o build mesmo com avisos
+  max_output_size: 100000000  # aumenta limite de tamanho do output (~10 MB)
+  exclude_patterns:
+    - notebooks/qaqc_MMA.ipynb
+    - notebooks/webScraper_MA.ipynb
+    - notebooks/webscraper_purpleAir.ipynb
+    - scripts/AuxiliaCreateSheetEstados.ipynb
+    - scripts/v2_getPurpleAirData.ipynb
+    - scripts/Untitled.ipynb
+    - scripts/trend_analisys.ipynb
+    - scripts/seasonality_analisys.ipynb
+    - scripts/createSheetOMS.ipynb
+    - scripts/create_MQAr.ipynb
+    - scripts/concatStations.ipynb
+    - scripts/createUfStations.ipynb
+    - scripts/rep_espacial/**/*.ipynb
+    - scripts/rep_espacial/*.ipynb
 # LaTeX PDF output filename
 latex:
   latex_documents:
@@ -43,9 +60,16 @@ launch_buttons:
 kernelspec:
   name: python3
 
-parse:
-  myst_enable_extensions:
-    - raw_html
+#parse:
+#  myst_enable_extensions:
+#    - raw_html
+
+# MyST Parser extensions
+myst_enable_extensions:
+  - colon_fence
+  - deflist
+  - dollarmath
+  - linkify
 
 remove_input_tags:
   - remove-input

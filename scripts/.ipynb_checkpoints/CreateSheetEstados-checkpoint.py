@@ -23,9 +23,12 @@ os.chdir('/home/nobre/Notebooks/RQAR_2025_book/')
 
 def create_QAQCMMA_VALOR(df,pol):
 
+    if 'VALOR_ORIGINAL' in df.columns:
+        df = df.drop(columns='VALOR_ORIGINAL')
+
     df = df.rename(columns={'VALOR':'VALOR_ORIGINAL'})
 
-    flags_invalidos = ['!', 'IF', 'IO', 'IC', 'I%', 'IL', 'IE', 'IS', 'IU', 'IM', 'IP', 'ID', 'IT', 'IR', 
+    flags_invalidos = ['?E','!', 'IF', 'IO', 'IC', 'I%', 'IL', 'IE', 'IS', 'IU', 'IM', 'IP', 'ID', 'IT', 'IR', 
                        'Fora da Faixa de Medição', 'Disabilitada Temporariamente', 'Inválido', 
                        'Insuficientes', 'Inexistente']
 
@@ -49,12 +52,14 @@ def create_QAQCMMA_VALOR(df,pol):
     else:
         lim_min = 0
         lim_max = np.inf
-
+    
     df['VALOR'] = df['VALOR_ORIGINAL']
 
     df['VALOR'] = pd.to_numeric(df['VALOR'], errors='coerce')
     
     df.loc[df['QAQC_MMA'] & (df['VALOR'].isna() | (df['VALOR'] <= lim_min) | (df['VALOR'] >= lim_max)), 'QAQC_MMA'] = False
+    
+    df.loc[df['VALOR'] == 985, 'VALOR'] = np.nan
     
     df.loc[~df['QAQC_MMA'], 'VALOR'] = np.nan
     
@@ -147,6 +152,83 @@ def parse_valor(x):
         x = x.replace(',', '.')     # troca vírgula por ponto decimal
     return float(x)
     
+def normalize_text(x: str) -> str:
+    """Remove acentos e padroniza texto (útil para nomes de poluentes e flags)."""
+    import unicodedata
+    if pd.isna(x):
+        return ""
+    x = str(x).strip()
+    x = unicodedata.normalize("NFKD", x).encode("ascii", "ignore").decode("ascii")
+    return x
+    
+def create_QAQCMMA_VALOR_RR(df, pol):
+    import unicodedata
+
+    # === Preserva valor original ===
+    if 'VALOR_ORIGINAL' not in df.columns:
+        df = df.rename(columns={'VALOR': 'VALOR_ORIGINAL'})
+
+    # === Normaliza flag textual ===
+    flags_invalidos = {
+        '?E','!','IF','IO','IC','I%','IL','IE','IS','IU','IM','IP','ID','IT','IR',
+        'FORA DA FAIXA DE MEDICAO','DISABILITADA TEMPORARIAMENTE','INVALIDO',
+        'INSUFICIENTES','INEXISTENTE'
+    }
+    if 'QAQC_INTERNO' not in df.columns:
+        df['QAQC_INTERNO'] = np.nan
+
+    flags_norm = df['QAQC_INTERNO'].astype(str).str.strip().str.upper()
+    flags_norm = flags_norm.apply(lambda s: unicodedata.normalize("NFKD", s).encode("ascii","ignore").decode("ascii") if isinstance(s,str) else s)
+    flags_norm = flags_norm.replace({"NAN":"INVALIDO", "": "INVALIDO"})
+    df['QAQC_INTERNO'] = ~flags_norm.isin(flags_invalidos)
+
+    # === Limpeza textual do valor ===
+    df['VALOR_LIMPO'] = (
+        df['VALOR_ORIGINAL']
+        .astype(str)
+        .str.replace(r'[^\d\.\-]', '', regex=True)  # remove letras, unidades, etc.
+        .replace({'': np.nan})
+    )
+
+    df['VALOR'] = pd.to_numeric(df['VALOR_LIMPO'], errors='coerce')
+
+    # === Faixas e sentinelas ===
+    DEFAULT_RANGE_LIMITS = {
+        "O3": (0, 500),
+        "CO": (0, 50),
+        "NO2": (0, 1000),
+        "NOX": (0, 2000),
+        "SO2": (0, 1000),
+        "MP25": (0, 1000),
+        "MP10": (0, 2000),
+        "NO": (0, 2000)
+    }
+
+    sentinelas_invalidas = {985, 998, 999, 9999, -999, -9999, 8888, 7777}
+    lim_min, lim_max = DEFAULT_RANGE_LIMITS.get(pol, (0, np.inf))
+
+    # arredonda floats antes da comparação (evita erro 985.0 ≠ 985)
+    df['VALOR_INT'] = df['VALOR'].round().astype('Int64')
+
+    mask_invalida = (
+        df['VALOR'].isna() |
+        (df['VALOR'] <= lim_min) |
+        (df['VALOR'] >= lim_max) |
+        (df['VALOR_INT'].isin(sentinelas_invalidas))
+    )
+
+    df['QAQC_MMA'] = df['QAQC_INTERNO']
+    df.loc[df['QAQC_MMA'] & mask_invalida, 'QAQC_MMA'] = False
+    df.loc[~df['QAQC_MMA'], 'VALOR'] = np.nan
+
+    cols = ['DATETIME','ANO','MES','DIA','HORA','VALOR','VALOR_ORIGINAL','UNIDADE','QAQC_INTERNO','QAQC_MMA']
+    for c in cols:
+        if c not in df.columns:
+            df[c] = np.nan
+
+    return df[cols]
+
+   
 #%% Função para São Paulo
 def rectify_SP(path):
     
@@ -161,97 +243,101 @@ def rectify_SP(path):
     lista=[]
     
     for item in files:
-        
-        arquivos = os.listdir(path+item)
-        
-        for arquivo in arquivos:
 
-            partes = arquivo.split('_')
-            estacao = partes[0]
-            cod_estacao = partes[-2]
+        if item != '.ipynb_checkpoints':
+                
+            arquivos = os.listdir(path+item)
             
-            cod_estacao = cod_estacao
-            
-            cod_estacao = 'SP' + cod_estacao.zfill(4)
-            
-            df = pd.read_csv(path+item+'/'+arquivo)
-            
-            poluentes = df['pol_name'].unique()
+            for arquivo in arquivos:
+
+                if arquivo != '.ipynb_checkpoints':
     
-            for pol in poluentes:
-                
-                df_pol = df[df['pol_name'] == pol]
-                
-                pol = pol.split(' (')[0]
-                
-                if pol == 'NOx':
-                    pol = 'NOX'
-                
-                if pol in tabela_pols['POLUENTE'].values:
-                
-                    i_ou_r = 'R'
+                    partes = arquivo.split('_')
+                    estacao = partes[0]
+                    cod_estacao = partes[-2]
                     
-                    s_ou_a = 'A'
+                    cod_estacao = cod_estacao
                     
-                    cod_poluente = int(tabela_pols.loc[tabela_pols['POLUENTE'] == pol, 'COD_POLUENTE'].values[0])
-                   
-                    cod_poluente = f"{cod_poluente:03d}"
+                    cod_estacao = 'SP' + cod_estacao.zfill(4)
                     
-                    nome_pasta = tabela_pols.loc[tabela_pols['COD_POLUENTE'] == int(cod_poluente), 'NOME_PASTA'].values[0]
+                    df = pd.read_csv(path+item+'/'+arquivo)
                     
-                    df_pol["DATETIME"] = df_pol["day"] + " " + df_pol["hour"]
-                    
-                    mask = df_pol["DATETIME"].str.contains("24:00")
-                    df_pol.loc[mask, "DATETIME"] = (
-                        pd.to_datetime(df_pol.loc[mask, "day"], format="%d/%m/%Y") + pd.Timedelta(days=1)
-                    ).dt.strftime("%d/%m/%Y 00:00")
-                    
-                    
-                    df_pol["DATETIME"] = pd.to_datetime(df_pol["DATETIME"], format="%d/%m/%Y %H:%M")    
-                    
-                    df_pol=df_pol.set_index('DATETIME')
-                    
-                    lista_horas = pd.date_range(
-                        start=df_pol.index.min(), 
-                        end=df_pol.index.max(), 
-                        freq='H').strftime('%Y-%m-%d %H:%M:%S').tolist()
-                    
-                    if len(lista_horas) != len(df_pol):
-                        df_pol = df_pol.reindex(pd.DatetimeIndex(lista_horas))
-                    
-                    df_pol['DATETIME'] = df_pol.index
-                    
-                    cols = ["DATETIME"] + [c for c in df_pol.columns if c != "DATETIME"]
-                    df_pol = df_pol[cols]
-                    
-                    df_pol.index = df_pol['DATETIME']
-                    
-                    df_pol.insert(1, 'ANO', df_pol.index.year)
-                    df_pol.insert(2, 'MES', df_pol.index.month)
-                    df_pol.insert(3, 'DIA', df_pol.index.day)
-                    df_pol.insert(4, 'HORA', df_pol.index.hour)
+                    poluentes = df['pol_name'].unique()
+            
+                    for pol in poluentes:
+                        
+                        df_pol = df[df['pol_name'] == pol]
+                        
+                        pol = pol.split(' (')[0]
+                        
+                        if pol == 'NOx':
+                            pol = 'NOX'
+                        
+                        if pol in tabela_pols['POLUENTE'].values:
+                        
+                            i_ou_r = 'R'
                             
-                    df_pol = df_pol.drop(columns=["day", "hour", "name", "pol_name", "param_code", "param_name", "aqs_code", "aqs_name"])
-                    
-                    df_pol = df_pol.rename(columns={"units": "UNIDADE", 'val': 'VALOR'})
-                    
-                    df_pol['QAQC_INTERNO'] = None
-                    
-                    cols = list(df_pol.columns)
-    
-                    cols = cols[:-2] + cols[-2:][::-1]
-                    
-                    df_pol = df_pol[cols]
-
-                    df_pol = create_QAQCMMA_VALOR(df_pol,nome_pasta)
-                    
-                    df_pol.to_csv('/home/nobre/Notebooks/RQAR_2025_book/data/MQAr/'+nome_pasta+'/'+cod_estacao+i_ou_r+s_ou_a+cod_poluente+'.csv', index=False)
-                
-                else:
-                    
-                    lista.append(pol)
-                    
-                    print(pol)
+                            s_ou_a = 'A'
+                            
+                            cod_poluente = int(tabela_pols.loc[tabela_pols['POLUENTE'] == pol, 'COD_POLUENTE'].values[0])
+                           
+                            cod_poluente = f"{cod_poluente:03d}"
+                            
+                            nome_pasta = tabela_pols.loc[tabela_pols['COD_POLUENTE'] == int(cod_poluente), 'NOME_PASTA'].values[0]
+                            
+                            df_pol["DATETIME"] = df_pol["day"] + " " + df_pol["hour"]
+                            
+                            mask = df_pol["DATETIME"].str.contains("24:00")
+                            df_pol.loc[mask, "DATETIME"] = (
+                                pd.to_datetime(df_pol.loc[mask, "day"], format="%d/%m/%Y") + pd.Timedelta(days=1)
+                            ).dt.strftime("%d/%m/%Y 00:00")
+                            
+                            
+                            df_pol["DATETIME"] = pd.to_datetime(df_pol["DATETIME"], format="%d/%m/%Y %H:%M")    
+                            
+                            df_pol=df_pol.set_index('DATETIME')
+                            
+                            lista_horas = pd.date_range(
+                                start=df_pol.index.min(), 
+                                end=df_pol.index.max(), 
+                                freq='H').strftime('%Y-%m-%d %H:%M:%S').tolist()
+                            
+                            if len(lista_horas) != len(df_pol):
+                                df_pol = df_pol.reindex(pd.DatetimeIndex(lista_horas))
+                            
+                            df_pol['DATETIME'] = df_pol.index
+                            
+                            cols = ["DATETIME"] + [c for c in df_pol.columns if c != "DATETIME"]
+                            df_pol = df_pol[cols]
+                            
+                            df_pol.index = df_pol['DATETIME']
+                            
+                            df_pol.insert(1, 'ANO', df_pol.index.year)
+                            df_pol.insert(2, 'MES', df_pol.index.month)
+                            df_pol.insert(3, 'DIA', df_pol.index.day)
+                            df_pol.insert(4, 'HORA', df_pol.index.hour)
+                                    
+                            df_pol = df_pol.drop(columns=["day", "hour", "name", "pol_name", "param_code", "param_name", "aqs_code", "aqs_name"])
+                            
+                            df_pol = df_pol.rename(columns={"units": "UNIDADE", 'val': 'VALOR'})
+                            
+                            df_pol['QAQC_INTERNO'] = None
+                            
+                            cols = list(df_pol.columns)
+            
+                            cols = cols[:-2] + cols[-2:][::-1]
+                            
+                            df_pol = df_pol[cols]
+        
+                            df_pol = create_QAQCMMA_VALOR(df_pol,nome_pasta)
+                            
+                            df_pol.to_csv('/home/nobre/Notebooks/RQAR_2025_book/data/MQAr/'+nome_pasta+'/'+cod_estacao+i_ou_r+s_ou_a+cod_poluente+'.csv', index=False)
+                        
+                        else:
+                            
+                            lista.append(pol)
+                            
+                            print(pol)
 
     df_ids = estacoes_SP
     
@@ -392,7 +478,11 @@ def rectify_RJ(path):
     
     for pol in tabela_pols['NOME_PASTA'].unique():
 
-        caminho = os.getcwd()+'/data/MQAr/' + pol + '/'
+        print(pol)
+        
+        caminho = os.getcwd()+'/data/MQAr/' + str(pol) + '/'
+
+        print(caminho)
         
         if os.path.isdir(caminho) and os.listdir(caminho):
             
@@ -401,6 +491,8 @@ def rectify_RJ(path):
             for estacao in arquivos:
     
                 if estacao.startswith('RJ'):
+
+                    print(caminho+estacao)
     
                     df = pd.read_csv(caminho+estacao)
 
@@ -463,81 +555,83 @@ def rectify_ES(path):
         'Partículas Respiráveis (< 2,5µm)': 'PM25',}
         
     for item in files:
-        partes = item.split('_')
-        ano = partes[-1]
         
-        if ano.endswith('.xls'):
-            ano = ano[:-4]
+        if item != '.ipynb_checkpoints':
+            partes = item.split('_')
+            ano = partes[-1]
+            
+            if ano.endswith('.xls'):
+                ano = ano[:-4]
+                    
+            elif ano.endswith('.xlsx'):
+                ano = ano[:-5]
+            
+            df = pd.read_excel(path+item)
+            
+            df.iloc[0] = df.iloc[0].ffill()
+            df.iloc[0, 0] = "DATETIME"
+            
+            df.columns = df.iloc[0]
+            
+            estacoes = df.columns.unique()
+            
+            for est in estacoes[1:]:
+                print(est)
+                    
+                df_est = df[["DATETIME", est]]
                 
-        elif ano.endswith('.xlsx'):
-            ano = ano[:-5]
-        
-        df = pd.read_excel(path+item)
-        
-        df.iloc[0] = df.iloc[0].ffill()
-        df.iloc[0, 0] = "DATETIME"
-        
-        df.columns = df.iloc[0]
-        
-        estacoes = df.columns.unique()
-        
-        for est in estacoes[1:]:
-            print(est)
+                df_est.iloc[1] = df_est.iloc[1].ffill()
+                df_est.iloc[1, 0] = "DATETIME"
                 
-            df_est = df[["DATETIME", est]]
-            
-            df_est.iloc[1] = df_est.iloc[1].ffill()
-            df_est.iloc[1, 0] = "DATETIME"
-            
-            df_est.columns = df_est.iloc[1]
-            
-            df_est = df_est[["DATETIME", "Qualidade do Ar"]]
-            
-            df_est.iloc[3] = df_est.iloc[3].ffill()
-            df_est.iloc[3, 0] = "DATETIME"
-            
-            df_est.columns = df_est.iloc[3]
-            
-            poluentes = df_est.columns.unique()
+                df_est.columns = df_est.iloc[1]
                 
-            for pol in poluentes[1:]:
-            
-                df_est_pol = df_est[["DATETIME", pol]]
+                df_est = df_est[["DATETIME", "Qualidade do Ar"]]
                 
-                idx = df_est_pol.apply(lambda row: row.astype(str).str.contains("Flag").any(), axis=1).idxmax()
-
-                df_est_pol = df_est_pol.loc[idx:].reset_index(drop=True)
-            
-                df_est_pol.columns = df_est_pol.iloc[0]
-
-                df_est_pol = df_est_pol.drop(df_est_pol.index[0]).reset_index(drop=True)
+                df_est.iloc[3] = df_est.iloc[3].ffill()
+                df_est.iloc[3, 0] = "DATETIME"
                 
-                unidade = df_est_pol.columns[1].split('[')[1][:-1]
-            
-                df_est_pol = df_est_pol.rename(columns={df_est_pol.columns[1]: 'VALOR',
-                                                        df_est_pol.columns[0]: 'DATETIME',
-                                                        df_est_pol.columns[2]: 'QAQC_INTERNO'})
-            
-                df_est_pol.insert(2, 'UNIDADE', unidade)
-            
-                if "(" in est:
-                    est = est.split('(')[-1][:-1]
-                else:
-                    est = est.split('- ')[-1]
+                df_est.columns = df_est.iloc[3]
                 
-                if "-" in est:
-                    est = est.replace("-", " ")
+                poluentes = df_est.columns.unique()
+                    
+                for pol in poluentes[1:]:
                 
-                if "-" in pol:
-                    pol = pol.replace("-", " ")
+                    df_est_pol = df_est[["DATETIME", pol]]
+                    
+                    idx = df_est_pol.apply(lambda row: row.astype(str).str.contains("Flag").any(), axis=1).idxmax()
+    
+                    df_est_pol = df_est_pol.loc[idx:].reset_index(drop=True)
                 
-                if pol in codigos_pols_ES.keys():
-                    pol = codigos_pols_ES[pol]
+                    df_est_pol.columns = df_est_pol.iloc[0]
+    
+                    df_est_pol = df_est_pol.drop(df_est_pol.index[0]).reset_index(drop=True)
+                    
+                    unidade = df_est_pol.columns[1].split('[')[1][:-1]
                 
-                    lista.append(est)
+                    df_est_pol = df_est_pol.rename(columns={df_est_pol.columns[1]: 'VALOR',
+                                                            df_est_pol.columns[0]: 'DATETIME',
+                                                            df_est_pol.columns[2]: 'QAQC_INTERNO'})
                 
-                    chave = f"{est}_{pol}"
-                    dict_pols_stat[chave].append(df_est_pol)
+                    df_est_pol.insert(2, 'UNIDADE', unidade)
+                
+                    if "(" in est:
+                        est = est.split('(')[-1][:-1]
+                    else:
+                        est = est.split('- ')[-1]
+                    
+                    if "-" in est:
+                        est = est.replace("-", " ")
+                    
+                    if "-" in pol:
+                        pol = pol.replace("-", " ")
+                    
+                    if pol in codigos_pols_ES.keys():
+                        pol = codigos_pols_ES[pol]
+                    
+                        lista.append(est)
+                    
+                        chave = f"{est}_{pol}"
+                        dict_pols_stat[chave].append(df_est_pol)
 
     dict_pols_stat = dict(dict_pols_stat)
     
@@ -677,44 +771,46 @@ def rectify_ES(path):
     lista=[]
     
     for item in files:
+
+        if item != '.ipynb_checkpoints':
         
-        est = item[:-5]
-        
-        df = pd.read_excel(path+item)
-        
-        poluentes = df.columns.unique()
+            est = item[:-5]
             
-        for pol in poluentes[1:]:
-        
-            df_est_pol = df[["Data", pol]]
-        
-            df_est_pol = df_est_pol.rename(columns={df_est_pol.columns[1]: 'VALOR',
-                                                    df_est_pol.columns[0]: 'DATETIME'})
-        
-            if pol == 'CO':
-                unidade = 'ppm'
-            else:
-                unidade = 'µg/m³'
-        
-            df_est_pol['UNIDADE'] = unidade
-        
-            df_est_pol['QAQC_INTERNO'] = None
-        
-            if "(" in est:
-                est = est.split('(')[-1][:-1]
-            else:
-                est = est.split('- ')[-1]
+            df = pd.read_excel(path+item)
             
-            if "-" in est:
-                est = est.replace("-", " ")
+            poluentes = df.columns.unique()
+                
+            for pol in poluentes[1:]:
             
-            if "-" in pol:
-                pol = pol.replace("-", " ")
+                df_est_pol = df[["Data", pol]]
             
-            lista.append(est)
-        
-            chave = f"{est}_{pol}"
-            dict_pols_stat[chave].append(df_est_pol)
+                df_est_pol = df_est_pol.rename(columns={df_est_pol.columns[1]: 'VALOR',
+                                                        df_est_pol.columns[0]: 'DATETIME'})
+            
+                if pol == 'CO':
+                    unidade = 'ppm'
+                else:
+                    unidade = 'µg/m³'
+            
+                df_est_pol['UNIDADE'] = unidade
+            
+                df_est_pol['QAQC_INTERNO'] = None
+            
+                if "(" in est:
+                    est = est.split('(')[-1][:-1]
+                else:
+                    est = est.split('- ')[-1]
+                
+                if "-" in est:
+                    est = est.replace("-", " ")
+                
+                if "-" in pol:
+                    pol = pol.replace("-", " ")
+                
+                lista.append(est)
+            
+                chave = f"{est}_{pol}"
+                dict_pols_stat[chave].append(df_est_pol)
         
     dict_pols_stat = dict(dict_pols_stat)
      
@@ -902,148 +998,150 @@ def rectify_MG(path):
 
     
     for item in files:
-        
-        estacao = item.split(' -')[0][:-5][8:]
-        cod_estacao = tabela_ids_mg.loc[tabela_ids_mg['estacao'] == estacao, 'codigo'].values[0]
-        
-        ano = item.split(' -')[0][-4:]
-        
-        df = pd.read_excel(path+item)
-        
-        mask = df.iloc[:, 0].astype(str).str.match(r'^\d')
-        
-        indice = mask.idxmax() if mask.any() else None
-        
-        if indice == 0:
-        
-            df = df.loc[indice:]
 
-            colunas_para_manter = list(df.columns[:2]) + [c for c in lista_poluentes_index_0 if c in df.columns]
-            
-            poluentes = colunas_para_manter[2:]
-            
-            df = df[colunas_para_manter]    
-            
-            for pol in poluentes:
-                
-                unidade = pol.split('(')[-1][:-1]
-                
-                poluente = pol.split('(')[0][:-1]
-                
-                poluente = dict_poluentes_index_0[poluente]
-                
-                df_pol = df[['Data','Hora',pol]]
-                
-                df_pol["Hora"] = pd.to_timedelta(df_pol["Hora"].astype(str))
-                
-                df_pol["DATETIME"] = df_pol["Data"] + df_pol["Hora"]
-                
-                df_pol.index = df_pol["DATETIME"]
-                
-                mask = (df_pol.index.hour == 0) & (df_pol["Data"] == df_pol["Data"].shift())
-
-                df_pol.loc[mask, "DATETIME"] += pd.Timedelta(days=1)
-                
-                df_pol = df_pol.drop(columns=['Data','Hora'])
-                
-                cols = ["DATETIME"] + [c for c in df_pol.columns if c != "DATETIME"]
-                
-                df_pol = df_pol[cols]
-                
-                df_pol.index = df_pol['DATETIME']
-                
-                df_pol.insert(1, 'ANO', df_pol.index.year)
-                df_pol.insert(2, 'MES', df_pol.index.month)
-                df_pol.insert(3, 'DIA', df_pol.index.day)
-                df_pol.insert(4, 'HORA', df_pol.index.hour)
-                
-                df_pol['UNIDADE'] = unidade
-                        
-                df_pol = df_pol.rename(columns={pol: 'VALOR'})
-                
-                df_pol['QAQC_INTERNO'] = None
-                
-                cod_poluente = int(tabela_pols.loc[tabela_pols['POLUENTE'] == poluente, 'COD_POLUENTE'].values[0])
-               
-                cod_poluente = f"{cod_poluente:03d}"
-                
-                i_ou_r = 'R'
-                
-                s_ou_a = 'A'
-                
-                nome_pasta = tabela_pols.loc[tabela_pols['COD_POLUENTE'] == int(cod_poluente), 'NOME_PASTA'].values[0]
-                
-                #df_pol.to_csv('/home/lcqar/MMA/O07/data/MQAr/'+nome_pasta+'/'+cod_estacao+i_ou_r+s_ou_a+cod_poluente+'.csv', index=False)
-            
-                dict_pols_stat[cod_estacao+i_ou_r+s_ou_a+cod_poluente].append(df_pol)
+        if item != '.ipynb_checkpoints':
         
-        else:
-            cod_poluente='100'
-            if indice >= 2:
-                df.columns = df.iloc[indice-2]  
-                df = df.drop(df.index[indice-2]) 
-                df = df.reset_index(drop=True)
+            estacao = item.split(' -')[0][:-5][8:]
+            cod_estacao = tabela_ids_mg.loc[tabela_ids_mg['estacao'] == estacao, 'codigo'].values[0]
             
-                cod_poluente = str(indice*100)
+            ano = item.split(' -')[0][-4:]
             
-            mask = df.iloc[:, 1:].applymap(lambda x: pd.api.types.is_number(x) or pd.isna(x)).all(axis=1)
+            df = pd.read_excel(path+item)
             
-            primeira_valida = mask.idxmax()-1
+            mask = df.iloc[:, 0].astype(str).str.match(r'^\d')
             
-            df = df.loc[primeira_valida:].reset_index(drop=True)
+            indice = mask.idxmax() if mask.any() else None
             
-            df.rename(columns={df.columns[0]: "DATETIME"}, inplace=True)
+            if indice == 0:
             
-            colunas_para_manter = list(df.columns[:1]) + [c for c in lista_poluentes_index_1 if c in df.columns]
-            
-            poluentes = colunas_para_manter[1:]
-            
-            df = df[colunas_para_manter]    
-
-            for pol in poluentes:
+                df = df.loc[indice:]
+    
+                colunas_para_manter = list(df.columns[:2]) + [c for c in lista_poluentes_index_0 if c in df.columns]
                 
-                df_pol = df[['DATETIME',pol]]
+                poluentes = colunas_para_manter[2:]
                 
-                unidade = df_pol[pol][0]
+                df = df[colunas_para_manter]    
+                
+                for pol in poluentes:
                     
-                df_pol = df_pol.iloc[1:].reset_index(drop=True)
+                    unidade = pol.split('(')[-1][:-1]
+                    
+                    poluente = pol.split('(')[0][:-1]
+                    
+                    poluente = dict_poluentes_index_0[poluente]
+                    
+                    df_pol = df[['Data','Hora',pol]]
+                    
+                    df_pol["Hora"] = pd.to_timedelta(df_pol["Hora"].astype(str))
+                    
+                    df_pol["DATETIME"] = df_pol["Data"] + df_pol["Hora"]
+                    
+                    df_pol.index = df_pol["DATETIME"]
+                    
+                    mask = (df_pol.index.hour == 0) & (df_pol["Data"] == df_pol["Data"].shift())
+    
+                    df_pol.loc[mask, "DATETIME"] += pd.Timedelta(days=1)
+                    
+                    df_pol = df_pol.drop(columns=['Data','Hora'])
+                    
+                    cols = ["DATETIME"] + [c for c in df_pol.columns if c != "DATETIME"]
+                    
+                    df_pol = df_pol[cols]
+                    
+                    df_pol.index = df_pol['DATETIME']
+                    
+                    df_pol.insert(1, 'ANO', df_pol.index.year)
+                    df_pol.insert(2, 'MES', df_pol.index.month)
+                    df_pol.insert(3, 'DIA', df_pol.index.day)
+                    df_pol.insert(4, 'HORA', df_pol.index.hour)
+                    
+                    df_pol['UNIDADE'] = unidade
+                            
+                    df_pol = df_pol.rename(columns={pol: 'VALOR'})
+                    
+                    df_pol['QAQC_INTERNO'] = None
+                    
+                    cod_poluente = int(tabela_pols.loc[tabela_pols['POLUENTE'] == poluente, 'COD_POLUENTE'].values[0])
+                   
+                    cod_poluente = f"{cod_poluente:03d}"
+                    
+                    i_ou_r = 'R'
+                    
+                    s_ou_a = 'A'
+                    
+                    nome_pasta = tabela_pols.loc[tabela_pols['COD_POLUENTE'] == int(cod_poluente), 'NOME_PASTA'].values[0]
+                    
+                    #df_pol.to_csv('/home/lcqar/MMA/O07/data/MQAr/'+nome_pasta+'/'+cod_estacao+i_ou_r+s_ou_a+cod_poluente+'.csv', index=False)
                 
-                poluente = dict_poluentes_index_1[pol]
+                    dict_pols_stat[cod_estacao+i_ou_r+s_ou_a+cod_poluente].append(df_pol)
+            
+            else:
+                cod_poluente='100'
+                if indice >= 2:
+                    df.columns = df.iloc[indice-2]  
+                    df = df.drop(df.index[indice-2]) 
+                    df = df.reset_index(drop=True)
                 
-                df_pol = df_pol[~df_pol["DATETIME"].astype(str).str.contains("1900", na=False)]
+                    cod_poluente = str(indice*100)
                 
-                df_pol["DATETIME"] = pd.to_datetime(df_pol["DATETIME"], errors="coerce")
+                mask = df.iloc[:, 1:].applymap(lambda x: pd.api.types.is_number(x) or pd.isna(x)).all(axis=1)
                 
-                df_pol.index = df_pol["DATETIME"]
+                primeira_valida = mask.idxmax()-1
                 
-                mask = df_pol.index.minute == 30
+                df = df.loc[primeira_valida:].reset_index(drop=True)
                 
-                df_pol.loc[mask, "DATETIME"] = df_pol.loc[mask, "DATETIME"] + pd.Timedelta(minutes=30)
+                df.rename(columns={df.columns[0]: "DATETIME"}, inplace=True)
                 
-                df_pol.insert(1, 'ANO', df_pol.index.year)
-                df_pol.insert(2, 'MES', df_pol.index.month)
-                df_pol.insert(3, 'DIA', df_pol.index.day)
-                df_pol.insert(4, 'HORA', df_pol.index.hour)
+                colunas_para_manter = list(df.columns[:1]) + [c for c in lista_poluentes_index_1 if c in df.columns]
                 
-                df_pol['UNIDADE'] = unidade
+                poluentes = colunas_para_manter[1:]
+                
+                df = df[colunas_para_manter]    
+    
+                for pol in poluentes:
+                    
+                    df_pol = df[['DATETIME',pol]]
+                    
+                    unidade = df_pol[pol][0]
                         
-                df_pol = df_pol.rename(columns={pol: 'VALOR'})
-                
-                df_pol['QAQC_INTERNO'] = None
-                
-                cod_poluente = int(tabela_pols.loc[tabela_pols['POLUENTE'] == poluente, 'COD_POLUENTE'].values[0])
-               
-                cod_poluente = f"{cod_poluente:03d}"
-                
-                i_ou_r = 'R'
-                
-                s_ou_a = 'A'
-                
-                nome_pasta = tabela_pols.loc[tabela_pols['COD_POLUENTE'] == int(cod_poluente), 'NOME_PASTA'].values[0]
-                
-                #df_pol.to_csv('/home/lcqar/MMA/O07/data/MQAr/'+nome_pasta+'/'+cod_estacao+i_ou_r+s_ou_a+cod_poluente+'.csv', index=False)
-                
-                dict_pols_stat[cod_estacao+i_ou_r+s_ou_a+cod_poluente].append(df_pol)
+                    df_pol = df_pol.iloc[1:].reset_index(drop=True)
+                    
+                    poluente = dict_poluentes_index_1[pol]
+                    
+                    df_pol = df_pol[~df_pol["DATETIME"].astype(str).str.contains("1900", na=False)]
+                    
+                    df_pol["DATETIME"] = pd.to_datetime(df_pol["DATETIME"], errors="coerce")
+                    
+                    df_pol.index = df_pol["DATETIME"]
+                    
+                    mask = df_pol.index.minute == 30
+                    
+                    df_pol.loc[mask, "DATETIME"] = df_pol.loc[mask, "DATETIME"] + pd.Timedelta(minutes=30)
+                    
+                    df_pol.insert(1, 'ANO', df_pol.index.year)
+                    df_pol.insert(2, 'MES', df_pol.index.month)
+                    df_pol.insert(3, 'DIA', df_pol.index.day)
+                    df_pol.insert(4, 'HORA', df_pol.index.hour)
+                    
+                    df_pol['UNIDADE'] = unidade
+                            
+                    df_pol = df_pol.rename(columns={pol: 'VALOR'})
+                    
+                    df_pol['QAQC_INTERNO'] = None
+                    
+                    cod_poluente = int(tabela_pols.loc[tabela_pols['POLUENTE'] == poluente, 'COD_POLUENTE'].values[0])
+                   
+                    cod_poluente = f"{cod_poluente:03d}"
+                    
+                    i_ou_r = 'R'
+                    
+                    s_ou_a = 'A'
+                    
+                    nome_pasta = tabela_pols.loc[tabela_pols['COD_POLUENTE'] == int(cod_poluente), 'NOME_PASTA'].values[0]
+                    
+                    #df_pol.to_csv('/home/lcqar/MMA/O07/data/MQAr/'+nome_pasta+'/'+cod_estacao+i_ou_r+s_ou_a+cod_poluente+'.csv', index=False)
+                    
+                    dict_pols_stat[cod_estacao+i_ou_r+s_ou_a+cod_poluente].append(df_pol)
         
     dict_pols_stat = dict(dict_pols_stat)
     
@@ -1171,6 +1269,7 @@ def rectify_SC(path):
                 f"{codigos_SC[nome_estacao]}RA{int(cod_pol):03d}.csv",
                 index=False
             )
+            
     estacao_CO = pd.read_excel('/home/nobre/Notebooks/RQAR_2025_book/data/DADOS_BRUTOS/SC/SC_organizado/CO_EQar_VilaMoema.xlsx')
     
     nome_estacao = estacao_CO.iloc[0, 1]
@@ -1373,51 +1472,51 @@ def rectify_RS(path):
     
     for item in files:
 
-        if item.endswith('Vargas'):
+        if item != '.ipynb_checkpoints':
+
+            if item.endswith('Vargas'):
+            
+                estacoes = os.listdir(path+item)[0]
+                    
+                abas = pd.ExcelFile(path+item+'/'+estacoes).sheet_names
         
-            estacoes = os.listdir(path+item)[0]
-                
-            abas = pd.ExcelFile(path+item+'/'+estacoes).sheet_names
-    
-            for aba in abas:
-                
-                df = pd.read_excel(path+item+'/'+estacoes, 
-                                   sheet_name=aba)
-                
-                if df.columns[0] != 'data':
-                    idx = df[df.iloc[:,0] == "data"].index[0]
-        
-                    df.columns = df.iloc[idx]
-                    df = df.iloc[idx+1:].reset_index(drop=True)
-                
-                if df.iloc[0].astype(str).str.contains(r"(ppm|ug/m³)", case=False).any():
-                    df = df.iloc[1:].reset_index(drop=True)    
-                
-                poluentes = df.columns
-                
-                cod_estacao = estacoes_RS[aba]
-                
-                for pol in poluentes[1:]:
+                for aba in abas:
                     
-                    df_pol = df[['data',pol]]
+                    df = pd.read_excel(path+item+'/'+estacoes, 
+                                       sheet_name=aba)
                     
-                    if pol == 'co ':
-                        df_pol['UNIDADE'] = 'ppm'
-                    else:
-                        df_pol['UNIDADE'] = 'ug/m3'
-                
-                    df_pol['QAQC_INTERNO'] = None
-                
-                    cod_pol = tabela_pols.loc[tabela_pols['POLUENTE'] == codigos_pols_RS[pol], 'COD_POLUENTE'].values[0]
+                    if df.columns[0] != 'data':
+                        idx = df[df.iloc[:,0] == "data"].index[0]
+            
+                        df.columns = df.iloc[idx]
+                        df = df.iloc[idx+1:].reset_index(drop=True)
                     
-                    cod_pol = f"{cod_pol:03d}"
-                
-                    id_mma_completo = cod_estacao + 'RA' + cod_pol
-                
-                    df_pol = df_pol.rename(columns={'data':'DATETIME',
-                                            pol:'VALOR'})
-                
-                    dict_pols_stat[id_mma_completo].append(df_pol)
+                    if df.iloc[0].astype(str).str.contains(r"(ppm|ug/m³)", case=False).any():
+                        df = df.iloc[1:].reset_index(drop=True)    
+                    
+                    poluentes = df.columns
+                    
+                    cod_estacao = estacoes_RS[aba]
+                    
+                    for pol in poluentes[1:]:
+                        
+                        df_pol = df[['data',pol]]
+                        
+                        if pol == 'co ':
+                            df_pol['UNIDADE'] = 'ppm'
+                        else:
+                            df_pol['UNIDADE'] = 'ug/m3'
+                    
+                        df_pol['QAQC_INTERNO'] = None
+                    
+                        cod_pol = str(int(tabela_pols.loc[tabela_pols['POLUENTE'] == codigos_pols_RS[pol], 'COD_POLUENTE'].values[0])).zfill(3)
+                    
+                        id_mma_completo = cod_estacao + 'RA' + cod_pol
+                    
+                        df_pol = df_pol.rename(columns={'data':'DATETIME',
+                                                pol:'VALOR'})
+                    
+                        dict_pols_stat[id_mma_completo].append(df_pol)
                     
     dict_pols_stat = dict(dict_pols_stat)
     
@@ -1475,43 +1574,45 @@ def ler_dados_parana_2024(dicionario,ano):
     arquivos = os.listdir(caminho)
     
     for arquivo in arquivos:
-    
-        if arquivo.endswith(('.xls', '.xlsx')):
-            caminho_arquivo = os.path.join(caminho, arquivo)
-            try:
-                df = pd.read_excel(caminho_arquivo, header=3)
-            except Exception as e:
-                print(f"Tentando ler como texto: {arquivo}")
-                df = pd.read_csv(caminho_arquivo, sep='\t', engine='python', encoding='latin1', header=2, on_bad_lines='skip')
-                print(len(df))
-                
-            col_data = next(c for c in df.columns if c.startswith('Data'))
-        
-            df = (
-            df.replace('-', np.nan)
-              .assign(**{
-                  c: pd.to_numeric(
-                      df[c].astype(str).str.replace(',', '.', regex=False),
-                      errors='coerce'
-                  )
-                  for c in df.columns if c != col_data
-              })
-              .groupby(col_data, as_index=False)
-              .agg(lambda x: x.dropna().iloc[0] if len(x.dropna()) else np.nan)
-            )
-            
-            if '5MIN' in arquivo:
-                estacao = arquivo.split('_')[0]
-            else:
-                estacao = arquivo.split('2')[0]
-            
-            if df.columns[0] == 'Data/Hora':
-        
-                print(estacao)
-    
-                dicionario[ano][estacao] = df
 
-            print(len(df))
+        if arquivo != '.ipynb_checkpoints':
+    
+            if arquivo.endswith(('.xls', '.xlsx')):
+                caminho_arquivo = os.path.join(caminho, arquivo)
+                try:
+                    df = pd.read_excel(caminho_arquivo, header=3)
+                except Exception as e:
+                    print(f"Tentando ler como texto: {arquivo}")
+                    df = pd.read_csv(caminho_arquivo, sep='\t', engine='python', encoding='latin1', header=2, on_bad_lines='skip')
+                    print(len(df))
+                    
+                col_data = next(c for c in df.columns if c.startswith('Data'))
+            
+                df = (
+                df.replace('-', np.nan)
+                  .assign(**{
+                      c: pd.to_numeric(
+                          df[c].astype(str).str.replace(',', '.', regex=False),
+                          errors='coerce'
+                      )
+                      for c in df.columns if c != col_data
+                  })
+                  .groupby(col_data, as_index=False)
+                  .agg(lambda x: x.dropna().iloc[0] if len(x.dropna()) else np.nan)
+                )
+                
+                if '5MIN' in arquivo:
+                    estacao = arquivo.split('_')[0]
+                else:
+                    estacao = arquivo.split('2')[0]
+                
+                if df.columns[0] == 'Data/Hora':
+            
+                    print(estacao)
+        
+                    dicionario[ano][estacao] = df
+    
+                print(len(df))
 
     return dicionario
 
@@ -2169,7 +2270,7 @@ def rectify_BA(path):
 
         df = create_QAQCMMA_VALOR(df,nome_pasta)
         
-        df.to_csv('/home/nobre/Notebooks/RQAR_2025_book/data/MQAr/'+nome_pasta+'/'+estacao+'ND'+str(cod_pol).zfill(3)+'.csv',index=False)
+        df.to_csv('/home/nobre/Notebooks/RQAR_2025_book/data/MQAr/'+nome_pasta+'/'+estacao+'ND'+str(int(cod_pol)).zfill(3)+'.csv',index=False)
 
     df_ids = pd.DataFrame({
     'ID_OEMA': codigo_estacao_BA.keys(),
@@ -2306,7 +2407,7 @@ def rectify_MA(path):
 
         df = create_QAQCMMA_VALOR(df,nome_pasta)
         
-        df.to_csv('/home/nobre/Notebooks/RQAR_2025_book/data/MQAr/'+nome_pasta+'/'+estacao+'RA'+str(cod_pol).zfill(3)+'.csv',index=False)
+        df.to_csv('/home/nobre/Notebooks/RQAR_2025_book/data/MQAr/'+nome_pasta+'/'+estacao+'RA'+str(int(cod_pol)).zfill(3)+'.csv',index=False)
 
     df_ids = pd.DataFrame({
     'ID_OEMA': codigo_estacao_MA.keys(),
@@ -2343,47 +2444,49 @@ def rectify_MT(path):
     print(files)
     
     for item in files:
+
+        if item != '.ipynb_checkpoints':
         
-        estacao = " ".join(item.split('-')[1].split('.')[0].split('_')[0:2])
-    
-        print(estacao)
-    
-        df = pd.read_excel(path+item)
-    
-        df = df.drop(columns=['Nome da estação'])
-    
-        lista_pols = set(df['Poluente'])
-    
-        for pol in lista_pols:
-    
-            df_pol = df[df["Poluente"] == pol]
-            
-            if pol in ['no2','so2','o3']:
-    
-                df_pol = ppb_to_ug(df_pol,pol)
-    
-            df_pol_hora = df_pol.groupby(["Ano", "Mes", "Dia", "Hora", "Unidade"])
-            
-            df_pol_hora = df_pol_hora.filter(lambda g: len(g) >= 9)
-            
-            df_pol = (
-                df_pol_hora.groupby(["Ano", "Mes", "Dia", "Hora", "Unidade"], as_index=False)
-                      .agg({"Valor": "mean"})
-            )
-    
-            df_pol['QAQC_INTERNO'] = None
-    
-            df_pol = df_pol.rename(columns={'Ano':'ANO',
-                                            'Mes':'MES',
-                                            'Dia':'DIA',
-                                            'Hora':'HORA',
-                                            'Unidade':'UNIDADE',
-                                            'Valor':'VALOR'})
-    
-            for col in ["ANO", "MES", "DIA", "HORA"]:
-                df_pol[col] = pd.to_numeric(df_pol[col], errors="coerce").astype("Int64")
-            
-            dict_pols_stat[estacao+'_'+pol].append(df_pol)
+            estacao = " ".join(item.split('-')[1].split('.')[0].split('_')[0:2])
+        
+            print(estacao)
+        
+            df = pd.read_excel(path+item)
+        
+            df = df.drop(columns=['Nome da estação'])
+        
+            lista_pols = set(df['Poluente'])
+        
+            for pol in lista_pols:
+        
+                df_pol = df[df["Poluente"] == pol]
+                
+                if pol in ['no2','so2','o3']:
+        
+                    df_pol = ppb_to_ug(df_pol,pol)
+        
+                df_pol_hora = df_pol.groupby(["Ano", "Mes", "Dia", "Hora", "Unidade"])
+                
+                df_pol_hora = df_pol_hora.filter(lambda g: len(g) >= 9)
+                
+                df_pol = (
+                    df_pol_hora.groupby(["Ano", "Mes", "Dia", "Hora", "Unidade"], as_index=False)
+                          .agg({"Valor": "mean"})
+                )
+        
+                df_pol['QAQC_INTERNO'] = None
+        
+                df_pol = df_pol.rename(columns={'Ano':'ANO',
+                                                'Mes':'MES',
+                                                'Dia':'DIA',
+                                                'Hora':'HORA',
+                                                'Unidade':'UNIDADE',
+                                                'Valor':'VALOR'})
+        
+                for col in ["ANO", "MES", "DIA", "HORA"]:
+                    df_pol[col] = pd.to_numeric(df_pol[col], errors="coerce").astype("Int64")
+                
+                dict_pols_stat[estacao+'_'+pol].append(df_pol)
 
     dict_pols_MT = {
         'co':'CO',
@@ -2465,7 +2568,7 @@ def rectify_MT(path):
 
         df = create_QAQCMMA_VALOR(df,nome_pasta)
         
-        df.to_csv('/home/nobre/Notebooks/RQAR_2025_book/data/MQAr/'+nome_pasta+'/'+estacao+'IA'+str(cod_pol).zfill(3)+'.csv',index=False)
+        df.to_csv('/home/nobre/Notebooks/RQAR_2025_book/data/MQAr/'+nome_pasta+'/'+estacao+'IA'+str(int(cod_pol)).zfill(3)+'.csv',index=False)
 
     dict_stations_MT = {
         'Sema':'CPA - SEMA - CBA',
@@ -2621,7 +2724,7 @@ def rectify_DF(path):
 
         df = create_QAQCMMA_VALOR(df,nome_pasta)
         
-        df.to_csv('/home/nobre/Notebooks/RQAR_2025_book/data/MQAr/'+nome_pasta+'/'+estacao+'RS'+str(cod_pol).zfill(3)+'.csv',index=False)
+        df.to_csv('/home/nobre/Notebooks/RQAR_2025_book/data/MQAr/'+nome_pasta+'/'+estacao+'RS'+str(int(cod_pol)).zfill(3)+'.csv',index=False)
     
     dict_oema = {
         'Estação CRAS FERCAL': 'Fercal CRAS',
@@ -2654,84 +2757,87 @@ def rectify_PE(path):
     dict_pols_stat_global = defaultdict(lambda: pd.DataFrame())
 
     for arq in arquivos:
-        ano = re.search(r'\d{4}', os.path.basename(arq))
-        ano_txt = ano.group(0) if ano else "?"
-        print(f"🔹 Processando: {os.path.basename(arq)} (ano {ano_txt})")
 
-        try:
-            df = pd.read_excel(arq)
-        except Exception as e:
-            print(f"⚠️ Erro ao ler {arq}: {e}")
-            continue
-
-        # ======== Cabeçalhos e estrutura básica ========
-        df.iloc[1] = df.iloc[1].ffill()
-        df.columns = df.iloc[1]
-        df = df.drop(index=[0, 1]).reset_index(drop=True)
-        df = df.rename(columns={'Date Time': 'DATETIME'})
-
-        poluentes = ['CO_ppm', 'NO2_ug/m3', 'NO_ug/m3', 'NOx_ug/m3',
-                     'O3_ug/m3', 'PM10', 'PM25', 'PTS', 'SO2_ug/m3']
-        dict_pols = {'CO_ppm': 'CO', 'NO2_ug/m3': 'NO2', 'NO_ug/m3': 'NO',
-                     'NOx_ug/m3': 'NOX', 'O3_ug/m3': 'O3', 'PM10': 'MP10',
-                     'PM25': 'MP25', 'PTS': 'PTS', 'SO2_ug/m3': 'SO2'}
-
-        estacoes = set(df.columns[1:])
-        dict_pols_stat = defaultdict(pd.DataFrame)
-
-        for estacao in estacoes:
-            df_estacao = df[['DATETIME', estacao]].copy()
-
-            # Extrai colunas de poluentes
-            df_estacao.columns = [df_estacao.columns.tolist()[0]] + df_estacao.iloc[0, 1:].tolist()
-            df_estacao = df_estacao.drop(index=[0]).reset_index(drop=True)
-
-            for pol in poluentes:
-                if pol in df_estacao.columns:
-                    df_pol = df_estacao[['DATETIME', pol]].copy()
-                    df_pol['UNIDADE'] = df_pol[pol].iloc[0]
-                    df_pol = df_pol.drop(index=[0]).reset_index(drop=True)
-                    df_pol = df_pol[df_pol['DATETIME'].astype(str).str.contains(r"\d", na=False)].reset_index(drop=True)
-
-                    # Conserta "24:" → "00:" e converte para datetime
-                    df_pol['DATETIME'] = df_pol['DATETIME'].apply(fix_24h)
-                    df_pol['DATETIME'] = pd.to_datetime(df_pol['DATETIME'], errors='coerce')
-                    df_pol = df_pol.dropna(subset=['DATETIME'])
-
-                    df_pol = df_pol.rename(columns={pol: 'VALOR'})
-                    df_pol['VALOR'] = pd.to_numeric(df_pol['VALOR'], errors='coerce')
-
-                    # ========= Garantia de sequência horária completa =========
-                    df_pol = df_pol.set_index('DATETIME').sort_index()
-                    horas_completas = pd.date_range(df_pol.index.min(), df_pol.index.max(), freq='H')
-                    df_pol = df_pol.reindex(horas_completas)
-
-                    # Preenche unidade e cria QAQC
-                    for col in ['UNIDADE']:
-                        if col in df_pol.columns:
-                            df_pol[col] = df_pol[col].ffill().bfill()
-
-                    df_pol['QAQC_INTERNO'] = np.where(df_pol['VALOR'].isna(), 'Inválido', 'OK')
-
-                    # Colunas auxiliares
-                    df_pol['ANO'] = df_pol.index.year
-                    df_pol['MES'] = df_pol.index.month
-                    df_pol['DIA'] = df_pol.index.day
-                    df_pol['HORA'] = df_pol.index.hour
-
-                    df_pol = df_pol.reset_index().rename(columns={'index': 'DATETIME'})
-                    df_pol = df_pol[['DATETIME', 'ANO', 'MES', 'DIA', 'HORA', 'VALOR', 'UNIDADE', 'QAQC_INTERNO']]
-
-                    pol_sigla = dict_pols[pol]
-                    chave = f"{estacao}_{pol_sigla}"
-                    dict_pols_stat[chave] = df_pol
-
-        # ======== Acumula todos os anos (concatena) ========
-        for chave, df_parcial in dict_pols_stat.items():
-            dict_pols_stat_global[chave] = pd.concat(
-                [dict_pols_stat_global[chave], df_parcial],
-                ignore_index=True
-            )
+        if arq != '.ipynb_checkpoints':
+            
+            ano = re.search(r'\d{4}', os.path.basename(arq))
+            ano_txt = ano.group(0) if ano else "?"
+            print(f"🔹 Processando: {os.path.basename(arq)} (ano {ano_txt})")
+    
+            try:
+                df = pd.read_excel(arq)
+            except Exception as e:
+                print(f"⚠️ Erro ao ler {arq}: {e}")
+                continue
+    
+            # ======== Cabeçalhos e estrutura básica ========
+            df.iloc[1] = df.iloc[1].ffill()
+            df.columns = df.iloc[1]
+            df = df.drop(index=[0, 1]).reset_index(drop=True)
+            df = df.rename(columns={'Date Time': 'DATETIME'})
+    
+            poluentes = ['CO_ppm', 'NO2_ug/m3', 'NO_ug/m3', 'NOx_ug/m3',
+                         'O3_ug/m3', 'PM10', 'PM25', 'PTS', 'SO2_ug/m3']
+            dict_pols = {'CO_ppm': 'CO', 'NO2_ug/m3': 'NO2', 'NO_ug/m3': 'NO',
+                         'NOx_ug/m3': 'NOX', 'O3_ug/m3': 'O3', 'PM10': 'MP10',
+                         'PM25': 'MP25', 'PTS': 'PTS', 'SO2_ug/m3': 'SO2'}
+    
+            estacoes = set(df.columns[1:])
+            dict_pols_stat = defaultdict(pd.DataFrame)
+    
+            for estacao in estacoes:
+                df_estacao = df[['DATETIME', estacao]].copy()
+    
+                # Extrai colunas de poluentes
+                df_estacao.columns = [df_estacao.columns.tolist()[0]] + df_estacao.iloc[0, 1:].tolist()
+                df_estacao = df_estacao.drop(index=[0]).reset_index(drop=True)
+    
+                for pol in poluentes:
+                    if pol in df_estacao.columns:
+                        df_pol = df_estacao[['DATETIME', pol]].copy()
+                        df_pol['UNIDADE'] = df_pol[pol].iloc[0]
+                        df_pol = df_pol.drop(index=[0]).reset_index(drop=True)
+                        df_pol = df_pol[df_pol['DATETIME'].astype(str).str.contains(r"\d", na=False)].reset_index(drop=True)
+    
+                        # Conserta "24:" → "00:" e converte para datetime
+                        df_pol['DATETIME'] = df_pol['DATETIME'].apply(fix_24h)
+                        df_pol['DATETIME'] = pd.to_datetime(df_pol['DATETIME'], errors='coerce')
+                        df_pol = df_pol.dropna(subset=['DATETIME'])
+    
+                        df_pol = df_pol.rename(columns={pol: 'VALOR'})
+                        df_pol['VALOR'] = pd.to_numeric(df_pol['VALOR'], errors='coerce')
+    
+                        # ========= Garantia de sequência horária completa =========
+                        df_pol = df_pol.set_index('DATETIME').sort_index()
+                        horas_completas = pd.date_range(df_pol.index.min(), df_pol.index.max(), freq='H')
+                        df_pol = df_pol.reindex(horas_completas)
+    
+                        # Preenche unidade e cria QAQC
+                        for col in ['UNIDADE']:
+                            if col in df_pol.columns:
+                                df_pol[col] = df_pol[col].ffill().bfill()
+    
+                        df_pol['QAQC_INTERNO'] = np.where(df_pol['VALOR'].isna(), 'Inválido', 'OK')
+    
+                        # Colunas auxiliares
+                        df_pol['ANO'] = df_pol.index.year
+                        df_pol['MES'] = df_pol.index.month
+                        df_pol['DIA'] = df_pol.index.day
+                        df_pol['HORA'] = df_pol.index.hour
+    
+                        df_pol = df_pol.reset_index().rename(columns={'index': 'DATETIME'})
+                        df_pol = df_pol[['DATETIME', 'ANO', 'MES', 'DIA', 'HORA', 'VALOR', 'UNIDADE', 'QAQC_INTERNO']]
+    
+                        pol_sigla = dict_pols[pol]
+                        chave = f"{estacao}_{pol_sigla}"
+                        dict_pols_stat[chave] = df_pol
+    
+            # ======== Acumula todos os anos (concatena) ========
+            for chave, df_parcial in dict_pols_stat.items():
+                dict_pols_stat_global[chave] = pd.concat(
+                    [dict_pols_stat_global[chave], df_parcial],
+                    ignore_index=True
+                )
 
     # ======== Criação de IDs e exportação ========
     primeiros_valores = {}
@@ -2786,143 +2892,180 @@ def rectify_PE(path):
 
 #%% Função para Roraima (RR)
 
+
 def rectify_RR(path):
-    import glob, os, re
-    import pandas as pd
-    import numpy as np
-    from collections import defaultdict
+    
+    # 1. Configuração e Busca
+    target_file = "Medições (29).xlsx"
+    path_dir = Path(path)
+    files = [f for f in os.listdir(path_dir) if f.endswith((".xls", ".xlsx"))]
 
-    # ======== Localiza arquivos ========
-    arquivos = sorted(glob.glob(os.path.join(path, '*.xls*'))) + sorted(glob.glob(os.path.join(path, '*.xlsx')))
-    if not arquivos:
-        raise FileNotFoundError(f"Nenhum arquivo Excel encontrado em {path}")
+    if not files:
+        print(f"⚠️ Aviso: Nenhum arquivo Excel encontrado em {path_dir}")
+        return pd.DataFrame(columns=['ID_OEMA', 'POLUENTE', 'ID_MMA', 'ID_MMA_COMPLETO'])
 
-    print(f"📂 Encontrados {len(arquivos)} arquivos em {path}")
-    dict_pols_stat_global = defaultdict(lambda: pd.DataFrame())
+    pasta_saida_raiz = '/home/nobre/Notebooks/RQAR_2025_book/data/MQAr/'
 
-    for arq in arquivos:
-        print(f"🔹 Processando: {os.path.basename(arq)}")
+    codigos_pols_RR = {
+        'Partículas Respiráveis (<2,5µm)': 'MP25',
+        'Monóxido de Carbono': 'CO',
+        'Dióxido de Nitrogênio': 'NO2',
+        'Óxidos de Nitrogênio': 'NOX',
+        'Ozônio': 'O3',
+        'Hidrocarbonetos Totais': 'HCT',
+        'Hidrocarbonetos Não Metano': 'HCNM',
+        'Metano': 'CH4',
+        'Dióxido de Enxofre': 'SO2',
+        'Partículas Inaláveis (<10µm)': 'MP10',
+        'Monóxido de Nitrogênio': 'NO'
+    }
 
-        # 1️⃣ Lê planilha multi-header (formato ENEVA/FEMARH)
-        df = pd.read_excel(arq, header=list(range(0, 8)))
+    stations_map = {
+        'Estação Fazenda Carolina': 'RR0001',
+        'Estação FEMARH': 'RR0002'
+    }
 
-        # 2️⃣ Junta cabeçalhos em uma única linha
-        df.columns = ['_'.join([str(x) for x in col if str(x) != 'nan']).strip() for col in df.columns]
-        df.columns = [re.sub(r'\s+', ' ', c).strip() for c in df.columns]
+    df_ids_list = []
+    
+    # 2. Loop sobre os arquivos Excel
+    for item in files:
+        print(f"🔹 Processando: {item}")
+        fpath = path_dir / item
+        
+        try:
+            # Lê o Excel com headers [1, 4]
+            df_multi = pd.read_excel(fpath, header=[1, 4])
+            df_multi = df_multi.dropna(axis=1, how="all")
+        except Exception as e:
+            print(f"⚠️ Erro ao ler o arquivo {item}: {e}")
+            continue
 
-        # 3️⃣ Identifica coluna de data/hora
-        col_data = [c for c in df.columns if re.search(r'data', c, re.IGNORECASE)]
-        if not col_data:
-            col_data = [df.columns[0]]
-        df = df.rename(columns={col_data[0]: 'DATETIME'})
-        df['DATETIME'] = pd.to_datetime(df['DATETIME'], errors='coerce')
-        df = df.dropna(subset=['DATETIME'])
+        # 3. Tratamento da Coluna DATETIME
+        
+        # 3a. Encontra a chave completa da coluna de data e hora
+        col_tempo_key = None
+        for c in df_multi.columns:
+            if isinstance(c, tuple) and 'Data e Hora' in c[0]:
+                col_tempo_key = c
+                break
+        
+        if col_tempo_key is None:
+             col_tempo_key = df_multi.columns[0] # Recorre à primeira coluna MultiIndex ou simples
+        
+        # 3b. Extrai a coluna de DATETIME (série de dados)
+        # Usamos df_multi[col_tempo_key] para extrair os dados de forma segura,
+        # pois 'col_tempo_key' é a chave MultiIndex correta.
+        datetime_data = pd.to_datetime(df_multi[col_tempo_key], errors='coerce')
+        
+        # 3c. Renomeia o nível 0 do cabeçalho da coluna de tempo para 'DATETIME'
+        df_multi.rename(columns={col_tempo_key[0]: "DATETIME"}, level=0, inplace=True)
+        
+        # 4. Loop sobre as Estações
+        for est_nome, id_mma in stations_map.items():
+            
+            try:
+                # 4a. Isola o bloco de dados da estação (mantém o MultiIndex)
+                bloco_estacao = df_multi.xs(est_nome, axis=1, level=0, drop_level=False)
+                
+                # 4b. Cria um DataFrame com a nova coluna DATETIME e os dados da Estação.
+                # Achata o cabeçalho do bloco de estações para o nome do poluente (nível 1).
+                # Reinicia a construção do DataFrame com a série de dados DATETIME.
+                bloco = pd.DataFrame({'DATETIME': datetime_data}).reset_index(drop=True)
+                bloco_estacao.columns = bloco_estacao.columns.droplevel(0)
+                
+                # Junta o DATETIME com o bloco de estações (usando index resetado)
+                bloco = pd.concat([bloco, bloco_estacao.reset_index(drop=True)], axis=1)
 
-        # 4️⃣ Poluentes reconhecidos
-        dict_pols = {
-            'Partículas Respiráveis (<2,5µm)': 'MP25',
-            'Partículas Inaláveis (<10µm)': 'MP10',
-            'Monóxido de Carbono': 'CO',
-            'Dióxido de Nitrogênio': 'NO2',
-            'Monóxido de Nitrogênio': 'NO',
-            'Óxidos de Nitrogênio': 'NOX',
-            'Ozônio': 'O3',
-            'Dióxido de Enxofre': 'SO2',
-        }
+            except KeyError:
+                continue
 
-        # 5️⃣ Detecta nomes de estações
-        estacoes_detectadas = sorted(set(
-            re.findall(r'Estação\s+([A-Za-zçÇãÃ\s]+)', ' '.join(df.columns))
-        ))
+            bloco = bloco.dropna(subset=['DATETIME'])
+            
+            # 5. Loop sobre os Poluentes
+            for pol_texto, pol_sigla in codigos_pols_RR.items():
+                
+                col_match = [c for c in bloco.columns if pol_texto in c]
+                if not col_match: continue
 
-        for estacao_nome in estacoes_detectadas:
-            print(f"   → Estação detectada: {estacao_nome}")
+                value_col_name = [c for c in col_match if 'Flag' not in c and 'Unidade' not in c and c != 'DATETIME']
+                if not value_col_name: continue
+                value_col_name = value_col_name[0]
+                
+                col_flag = [
+                    c for c in bloco.columns 
+                    if ('Flag' in c or 'FLAG' in c) and pol_texto.split('(')[0].strip() in c[0]
+                ]
 
-            for pol_texto, pol_sigla in dict_pols.items():
-                col_match = [c for c in df.columns if pol_texto in c and 'Valor' in c and estacao_nome in c]
-                if not col_match:
-                    continue
+                df_pol = bloco[["DATETIME", value_col_name]].copy()
+                df_pol.rename(columns={value_col_name: 'VALOR'}, inplace=True)
+                
+                df_pol['QAQC_INTERNO'] = bloco[col_flag[0]] if col_flag else np.nan
+                if not col_flag:
+                    print(f"⚠️ Nenhuma coluna de flag encontrada para {pol_texto} em {est_nome}")
 
-                col_pol = col_match[0]
-                df_pol = df[['DATETIME', col_pol]].copy()
+                
+                match_unit = re.search(r'\((.*?)\)', pol_texto)
+                unit = match_unit.group(1).replace('µ', 'u') if match_unit else 'Nao declarado'
+                df_pol['UNIDADE'] = unit.replace('[', '').replace(']', '')
 
-                # Converte e prepara colunas
-                df_pol['VALOR'] = pd.to_numeric(df_pol[col_pol], errors='coerce')
-                df_pol['UNIDADE'] = re.search(r'\[(.*?)\]', col_pol).group(1) if '[' in col_pol else 'µg/m³'
-                df_pol = df_pol.drop(columns=[col_pol])
+                df_pol['VALOR'] = pd.to_numeric(df_pol['VALOR'], errors='coerce')
+                
+                df_pol = df_pol.dropna(subset=['DATETIME']).set_index('DATETIME').sort_index()
+                
+                # Reindexa para série horária completa e adiciona colunas de tempo
+                full_range = pd.date_range(df_pol.index.min(), df_pol.index.max(), freq='h')
+                df_pol = df_pol.reindex(full_range).reset_index().rename(columns={'index': 'DATETIME'})
+                
+                df_pol['ANO'] = df_pol['DATETIME'].dt.year
+                df_pol['MES'] = df_pol['DATETIME'].dt.month
+                df_pol['DIA'] = df_pol['DATETIME'].dt.day
+                df_pol['HORA'] = df_pol['DATETIME'].dt.hour
+                
 
-                # ========= Garante sequência horária completa =========
-                df_pol = df_pol.set_index('DATETIME').sort_index()
-                horas_completas = pd.date_range(df_pol.index.min(), df_pol.index.max(), freq='H')
-                df_pol = df_pol.reindex(horas_completas)
+                # Aplica QAQC (depende de tabela_pols global)
+                nome_pasta = tabela_pols.loc[tabela_pols['POLUENTE'] == pol_sigla, 'NOME_PASTA'].iloc[0]
+                df_pol_filtrado = create_QAQCMMA_VALOR(df_pol.copy(), pol_sigla)
+                
+                # ======= PRINTS DE VERIFICAÇÃO =======
+                total = len(df_pol)
+                validos = df_pol_filtrado['QAQC_MMA'].sum()
+                invalidos = total - validos
+                pct = (validos / total * 100) if total > 0 else 0
+                print(f"   🔎 {pol_sigla}: {validos}/{total} válidos ({pct:.1f}%) — {invalidos} removidos")
+                
+                # Substitui o df original pelo filtrado
+                df_pol = df_pol_filtrado
 
-                # Preenche unidade e define QAQC
-                for col in ['UNIDADE']:
-                    if col in df_pol.columns:
-                        df_pol[col] = df_pol[col].ffill().bfill()
 
-                df_pol['QAQC_INTERNO'] = np.where(df_pol['VALOR'].isna(), 'Inválido', 'OK')
-
-                # Colunas auxiliares
-                df_pol['ANO'] = df_pol.index.year
-                df_pol['MES'] = df_pol.index.month
-                df_pol['DIA'] = df_pol.index.day
-                df_pol['HORA'] = df_pol.index.hour
-
-                df_pol = df_pol.reset_index().rename(columns={'index': 'DATETIME'})
-                df_pol = df_pol[['DATETIME', 'ANO', 'MES', 'DIA', 'HORA', 'VALOR', 'UNIDADE', 'QAQC_INTERNO']]
-
-                chave = f"{estacao_nome.replace(' ', '_').upper()}_{pol_sigla}"
-                dict_pols_stat_global[chave] = pd.concat([dict_pols_stat_global[chave], df_pol], ignore_index=True)
-
-    # ======== Gera IDs únicos (baseados na 1ª data válida) ========
-    primeiros_valores = {}
-    for chave, df in dict_pols_stat_global.items():
-        if not df['VALOR'].isna().all() and (df['VALOR'] > 0).any():
-            linha_valida = df[df['VALOR'].notna() & (df['VALOR'] > 0)].iloc[0]
-            primeiros_valores[chave] = linha_valida['DATETIME']
-
-    codigo_estacao_RR = {}
-    for chave, data in primeiros_valores.items():
-        station = chave.split('_')[0]
-        if station in codigo_estacao_RR:
-            if data <= codigo_estacao_RR[station]:
-                codigo_estacao_RR[station] = data
-        else:
-            codigo_estacao_RR[station] = data
-
-    sorted_items = sorted(codigo_estacao_RR.items(), key=lambda x: (x[1], x[0]))
-    codigo_estacao_RR = {nome: f"RR{i:04d}" for i, (nome, _) in enumerate(sorted_items, start=1)}
-
-    # ======== Exporta CSVs padronizados ========
-    for chave, df in dict_pols_stat_global.items():
-        estacao = codigo_estacao_RR.get(chave.split('_')[0], 'RR9999')
-        pol = chave.split('_')[-1]
-
-        cod_pol = tabela_pols.loc[tabela_pols['POLUENTE'] == pol, 'COD_POLUENTE'].values[0]
-        nome_pasta = tabela_pols.loc[tabela_pols['COD_POLUENTE'] == int(cod_pol), 'NOME_PASTA'].values[0]
-
-        df = create_QAQCMMA_VALOR(df, nome_pasta)
-
-        # 💾 Sistema de salvamento padronizado
-        df.to_csv(
-            f'/home/nobre/Notebooks/RQAR_2025_book/data/MQAr/{nome_pasta}/{estacao}RS{int(cod_pol):03d}.csv',
-            index=False
-        )
-
-    # ======== Tabela de mapeamento ID_OEMA ↔ ID_MMA ========
-    df_ids = pd.DataFrame({
-        'ID_OEMA': codigo_estacao_RR.keys(),
-        'ID_MMA': list(codigo_estacao_RR.values())
-    })
-
-    print(f"\n✅ {len(df_ids)} estações processadas em Roraima")
-    print("\n📋 Mapeamento Estação → Código MMA:")
-    for k, v in codigo_estacao_RR.items():
-        print(f"{v} → {k}")
-
+                # Determina ID_MMA_COMPLETO (depende de tabela_ids global)
+                cod_pol_val = tabela_pols.loc[tabela_pols['POLUENTE'] == pol_sigla, 'COD_POLUENTE'].iloc[0]
+                meta_match = tabela_ids.loc[(tabela_ids["ID_MMA"] == id_mma) & (tabela_ids["POLUENTE"] == pol_sigla), "ID_MMA_COMPLETO"]
+                
+                if not meta_match.empty:
+                     id_mma_completo = meta_match.iloc[0]
+                else:
+                     id_mma_completo = f"{id_mma}RA{int(cod_pol_val):03d}"
+                
+                # 6. Salva o arquivo CSV no caminho padrão
+                pasta_destino = Path(pasta_saida_raiz) / nome_pasta
+                pasta_destino.mkdir(parents=True, exist_ok=True)
+                
+                df_final_save = df_pol[['DATETIME', 'ANO', 'MES', 'DIA', 'HORA', 'VALOR', 'VALOR_ORIGINAL', 'UNIDADE', 'QAQC_INTERNO', 'QAQC_MMA']]
+                
+                output_filepath = pasta_destino / f'{id_mma_completo}.csv'
+                df_final_save.to_csv(output_filepath, index=False)
+                
+                df_ids_list.append({
+                    "ID_OEMA": est_nome,
+                    "POLUENTE": pol_sigla,
+                    "ID_MMA": id_mma,
+                    "ID_MMA_COMPLETO": id_mma_completo
+                })
+        
+    # 7. Retorna o DataFrame de IDs
+    df_ids = pd.DataFrame(df_ids_list)
+    df_ids = df_ids.drop_duplicates(subset=["ID_MMA", "ID_OEMA"]).reset_index(drop=True)
     return df_ids
-
   
     
 #%% Função Ceará
@@ -3019,6 +3162,7 @@ def gerar_arquivos_estacoes_poluentes(dfs_alvo, UF_estacoes, df_cod_pol, pasta_s
             caminho_saida = os.path.join(pasta_destino, nome_arquivo)
             df_saida.to_csv(caminho_saida, index=False, sep=',', encoding='utf-8-sig')
             print(f"💾 Arquivo criado: {caminho_saida}")
+            
 def rectify_CE(path):
     import pandas as pd
     import os, glob, re, csv
@@ -3250,7 +3394,7 @@ def rectify_MS(path):
                 print(f"⚠️ Poluente {sigla_pol} não encontrado")
                 continue
 
-            cod_pol = linha_pol['COD_POLUENTE'].iloc[0].zfill(3)
+            cod_pol = str(int(linha_pol['COD_POLUENTE'].iloc[0])).zfill(3)
             nome_pasta = linha_pol['NOME_PASTA'].iloc[0]
             pasta_destino = os.path.join(pasta_saida, nome_pasta)
             os.makedirs(pasta_destino, exist_ok=True)
@@ -3440,8 +3584,10 @@ funcoes = {
     
 }
 
-lista_estados = ['ES']
-
+#lista_estados = ['DF','ES','MA','MG','MS','PE','PR','RS','SC','SP','BA']
+#lista_estados = ['SP','BA']
+#lista_estados = ['ES','SP','RJ','RS','PR','MA','BA','PE','CE','PB','MT','DF','MS','MG']
+lista_estados = ['RJ']
 tabela_ids = pd.read_csv('/home/nobre/Notebooks/RQAR_2025_book/data/Monitoramento_QAr_BR.csv')
 tabela_pols = pd.read_csv('/home/nobre/Notebooks/RQAR_2025_book/data/dicionarios/CODIGO_POLUENTES.csv')
 
@@ -3451,7 +3597,7 @@ for estado in lista_estados:
 
     df_ids = funcoes[estado](path)
     
-    create_df_estacao(estado,df_ids)##!/usr/bin/env python3
+    #create_df_estacao(estado,df_ids)##!/usr/bin/env python3
 
 
 

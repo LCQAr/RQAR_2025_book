@@ -25,7 +25,7 @@ CSV_ATTR    = SET_DIR / "BR_setores_CD2022.csv"
 GPKG_POP    = SET_DIR / "BR_setores_pop2022.gpkg"
 
 BUFFER_PATH = OUTPUT_DIR / "buffers_var.gpkg"
-REP_CSV     = rootPath / "data/rep_espacial/outputs/rep_espacial.csv"
+REP_CSV     = "/home/nobre/Notebooks/RQAR_2025_book/scripts/rep_espacial/09_formatar_e_salvar_outputs/outputs/rep_espacial.csv"
 
 POP_COL     = "v0001"
 

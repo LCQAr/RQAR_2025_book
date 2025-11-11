@@ -1,88 +1,199 @@
 # -*- coding: utf-8 -*-
 """
-Gera buffers e calcula população atendida por estação (REP_ESPACIAL)
-Entrada: rep_espacial.csv
-Saídas:
-  - buffers_var.gpkg (com ID único)
-  - populacao_varbuf.csv (ID + POP_BUFFER)
+popUnderStationREP.py
+Funções para:
+1) Consolidar setores censitários + população (Censo 2022)
+2) Gerar buffers oficiais a partir da coluna REP_ESPACIAL (classificação)
+3) Calcular população atendida por estação (REP_ESPACIAL → ID_MMA_COMPLETO)
 """
 
 import geopandas as gpd
 import pandas as pd
 from pathlib import Path
 import os
+import logging
 
+# ========================
+# Configurações globais
+# ========================
 rootPath    = Path(os.path.dirname(os.getcwd()))
 SET_DIR     = rootPath / "data/setores_censitarios"
 OUTPUT_DIR  = rootPath / "data/outputs"
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
-# Arquivos de entrada
-REP_CSV     = rootPath / "data/rep_espacial/outputs/rep_espacial.csv"
-SET_GPKG    = SET_DIR / "BR_setores_pop2022.gpkg"
+CSV_ATTR    = SET_DIR / "BR_setores_CD2022.csv"
+GPKG_POP    = SET_DIR / "BR_setores_pop2022.gpkg"
 
-# Arquivos de saída
-BUF_GPKG    = OUTPUT_DIR / "buffers_var.gpkg"
-POP_CSV     = OUTPUT_DIR / "populacao_varbuf.csv"
+BUFFER_PATH = OUTPUT_DIR / "buffers_var.gpkg"
+REP_CSV     = rootPath / "data" / "Monitoramento_QAr_BR.csv"
 
-# Nome da coluna de população nos setores
-POP_COL     = "POP2022"
+POP_COL     = "v0001"
 
 
-def generate_buffers(rep_csv=REP_CSV, out_gpkg=BUF_GPKG):
-    rep = pd.read_csv(rep_csv, dtype={"ID_OEMA": str})
+# ========================
+# Consolida setores + população
+# ========================
+def consolidar_setores(csv_path=CSV_ATTR, shp_dir=SET_DIR, out_path=GPKG_POP):
+    """Une shapefiles de setores com o CSV de população (Censo 2022)."""
+    print("🔄 Consolidando setores com população...")
+
+    atrib = pd.read_csv(csv_path, sep=",", dtype={"CD_SETOR": str})
+    atrib.columns = [c.lower() for c in atrib.columns]
+
+    if POP_COL not in atrib.columns:
+        raise ValueError(f"❌ Coluna {POP_COL} não encontrada no CSV.")
+
+    all_setores = []
+    for uf_dir in shp_dir.glob("*_setores_CD2022"):
+        shp_files = list(uf_dir.glob("*.shp"))
+        if not shp_files:
+            continue
+        shp = shp_files[0]
+        setores = gpd.read_file(shp)
+        setores["CD_SETOR"] = setores["CD_SETOR"].astype(str)
+
+        setores = setores.merge(
+            atrib[["cd_setor", POP_COL]],
+            left_on="CD_SETOR", right_on="cd_setor", how="left"
+        ).rename(columns={POP_COL: "POP2022"})
+
+        setores.drop(columns=[c for c in ["cd_setor"] if c in setores.columns], inplace=True)
+        all_setores.append(setores)
+
+    setores_full = gpd.GeoDataFrame(pd.concat(all_setores, ignore_index=True), crs=setores.crs)
+    setores_full = setores_full.loc[:, ~setores_full.columns.duplicated()]
+    setores_full.to_file(out_path, driver="GPKG")
+
+    print(f"✅ Consolidado: {len(setores_full)} setores → {out_path}")
+    return out_path
+
+
+# ========================
+# Gera buffers oficiais (REP_ESPACIAL)
+# ========================
+def ensure_buffers_from_rep(rep_csv=REP_CSV, out_buffer_path=BUFFER_PATH):
+    """Gera buffers circulares a partir da coluna REP_ESPACIAL (classificação categórica)."""
+    print("📍 Gerando buffers a partir de REP_ESPACIAL...")
+
+    rep = pd.read_csv(rep_csv)
+    needed = {"LATITUDE", "LONGITUDE", "REP_ESPACIAL", "ID_OEMA"}
+    missing = needed - set(rep.columns)
+    if missing:
+        raise ValueError(f"❌ Faltam colunas no CSV: {missing}")
+
+    # Conversão categórica → numérica (raio em metros)
+    cat_to_radius = {
+        "microescala": 100,
+        "mesoescala": 500,
+        "bairro": 4000,
+        "urbana": 50000,
+    }
+
+    rep["REP_ESPACIAL_NUM"] = (
+        rep["REP_ESPACIAL"]
+        .astype(str)
+        .str.lower()
+        .map(cat_to_radius)
+    )
+
+    rep["ID_OEMA"] = rep["ID_OEMA"].astype(str)
 
     gdf_pts = gpd.GeoDataFrame(
         rep.copy(),
         geometry=gpd.points_from_xy(rep["LONGITUDE"], rep["LATITUDE"]),
         crs="EPSG:4326"
-    ).to_crs(5880)  # projeção em metros
+    ).to_crs(5880)
 
-    # gera buffers circulares
+    # Cria os buffers com base no raio convertido
     gdf_pts["geometry"] = [
         geom.buffer(float(dist)) if pd.notna(dist) and float(dist) > 0 else None
-        for geom, dist in zip(gdf_pts.geometry, gdf_pts["REP_ESPACIAL"])
+        for geom, dist in zip(gdf_pts.geometry, gdf_pts["REP_ESPACIAL_NUM"])
     ]
 
-    # adiciona ID único sequencial
-    gdf_pts = gdf_pts.reset_index(drop=True).reset_index().rename(columns={"index": "ID"})
+    gdf_out = gdf_pts.dropna(subset=["geometry"]).copy()
+    gdf_out.to_crs(4326).to_file(out_buffer_path, driver="GPKG")
 
-    # salva
-    gdf_out = gdf_pts.to_crs(4326)  # volta para WGS84
-    gdf_out.to_file(out_gpkg, driver="GPKG")
-    print(f"✅ Buffers salvos em {out_gpkg} ({len(gdf_out)} registros)")
-    return gdf_out
+    print(f"✅ Buffers gerados: {len(gdf_out)} → {out_buffer_path}")
+    return out_buffer_path
 
 
-def calc_pop(setor_gpkg=SET_GPKG, buffer_gpkg=BUF_GPKG, pop_col=POP_COL, out_csv=POP_CSV):
-    setores = gpd.read_file(setor_gpkg).to_crs(5880)
-    buffers = gpd.read_file(buffer_gpkg).to_crs(5880)
+# ========================
+# Calcula população atendida
+# ========================
+def popUnderStationREP(
+    setor_path=GPKG_POP,
+    buffer_path=BUFFER_PATH,
+    pop_col="POP2022",
+    method="A",
+    output_csv=OUTPUT_DIR / "populacao_varbuf.csv"
+):
+    """
+    Calcula a população atendida pelos buffers:
+    - method="A": população por estação (ID_MMA_COMPLETO)
+    - method="C": população total pela união da rede
+    """
+    logging.getLogger("pyogrio._io").setLevel(logging.ERROR)
 
-    # garante ID
-    if "ID" not in buffers.columns:
-        buffers = buffers.reset_index(drop=True).reset_index().rename(columns={"index": "ID"})
+    if not Path(setor_path).exists():
+        print("⚠️ Setores não encontrados → gerando...")
+        consolidar_setores()
 
-    # interseção
-    inter = gpd.overlay(setores, buffers, how="intersection")
+    setores = gpd.read_file(setor_path).to_crs(5880)
+    if not Path(buffer_path).exists():
+        buffer_path = ensure_buffers_from_rep()
+    buffers = gpd.read_file(buffer_path).to_crs(5880)
 
-    setores["AREA_SETOR"] = setores.geometry.area
-    area_total_setor = setores.set_index("CD_SETOR")["AREA_SETOR"]
+    if method.upper() == "A":
+        print("👩‍👩‍👧‍👦 Calculando população por buffer (método A, incluindo ID_MMA_COMPLETO)...")
+        inter = gpd.overlay(setores, buffers, how="intersection")
 
-    inter["AREA_INTER"] = inter.geometry.area
-    inter["FRAC"] = inter["AREA_INTER"] / inter["CD_SETOR"].map(area_total_setor)
-    inter["POP_FRAC"] = inter[pop_col] * inter["FRAC"]
+        inter["AREA_INTER"] = inter.geometry.area
+        area_setor = setores.set_index("CD_SETOR").geometry.area
+        inter = inter.merge(area_setor.rename("AREA_SETOR"), on="CD_SETOR", how="left")
+        inter["frac_area"] = inter["AREA_INTER"] / inter["AREA_SETOR"]
+        inter["pop_frac"] = inter[pop_col] * inter["frac_area"]
 
-    # soma população por buffer
-    pop_por_buffer = (inter.groupby("ID")["POP_FRAC"]
-                             .sum()
-                             .reset_index()
-                             .rename(columns={"POP_FRAC": "POP_BUFFER"}))
+        # 🧩 Garante colunas necessárias
+        for col in ["ID_OEMA", "ID_MMA_COMPLETO"]:
+            if col not in inter.columns:
+                raise ValueError(f"❌ Coluna {col} não encontrada no CSV de entrada!")
 
-    pop_por_buffer.to_csv(out_csv, index=False, encoding="utf-8")
-    print(f"✅ População atendida salva em {out_csv}")
-    return pop_por_buffer
+        # 🔹 Agrupa por ID_OEMA e ID_MMA_COMPLETO
+        pop_por_buffer = (
+            inter.groupby(["ID_OEMA", "ID_MMA_COMPLETO"])["pop_frac"]
+            .sum()
+            .reset_index()
+            .rename(columns={"pop_frac": "POP_BUFFER"})
+        )
+
+        pop_por_buffer.to_csv(output_csv, index=False, encoding="utf-8")
+        print(f"✅ População por estação salva em {output_csv}")
+        return pop_por_buffer
+
+    elif method.upper() == "C":
+        print("🌐 Calculando população total (método C)...")
+        buffer_union = buffers.unary_union
+        inter = gpd.overlay(setores, gpd.GeoDataFrame(geometry=[buffer_union], crs=buffers.crs), how="intersection")
+
+        inter["AREA_INTER"] = inter.geometry.area
+        area_setor = setores.set_index("CD_SETOR").geometry.area
+        inter = inter.merge(area_setor.rename("AREA_SETOR"), on="CD_SETOR", how="left")
+        inter["frac_area"] = inter["AREA_INTER"] / inter["AREA_SETOR"]
+        inter["pop_frac"] = inter[pop_col] * inter["frac_area"]
+
+        total_pop = inter["pop_frac"].sum().round(0).astype(int)
+        print(f"✅ População total atendida pela rede: {total_pop:,} habitantes")
+        return total_pop
+
+    else:
+        raise ValueError("method deve ser 'A' (por buffer) ou 'C' (total)")
 
 
+# ========================
+# Execução direta
+# ========================
 if __name__ == "__main__":
-    gdf_buf = generate_buffers()
-    df_pop  = calc_pop()
+    consolidar_setores()
+    ensure_buffers_from_rep()
+    popUnderStationREP(method="C")
+    popUnderStationREP(method="A")

@@ -5,6 +5,7 @@ media
 *.gpkg
 *.parquet
 *.shp
+*.pyc
 scripts/rep_espacial/01_preprocessamento/inputs/
 scripts/rep_espacial/01_preprocessamento/outputs/
 scripts/rep_espacial/02_distancia_vias_e_ind/inputs/
@@ -23,3 +24,22 @@ scripts/rep_espacial/08_criar_buffers/inputs/
 scripts/rep_espacial/08_criar_buffers/outputs/
 scripts/rep_espacial/09_formatar_e_salvar_outputs/inputs/
 scripts/rep_espacial/09_formatar_e_salvar_outputs/outputs/
+scripts/__pycache__/
+scripts/.ipynb_checkpoints/
+scripts/rep_espacial/*/.ipynb_checkpoints/
+scripts/__pycache__/
+
+
+# Exceptions
+.ipynb_checkpoints/Untitled-checkpoint.ipynb
+Untitled.ipynb
+_config_backup.yml
+chpt01/.ipynb_checkpoints/sec01_3-checkpoint.md
+chpt04/.ipynb_checkpoints/Untitled-checkpoint.ipynb
+chpt04/.ipynb_checkpoints/sec04_4-checkpoint.md
+chpt04/.ipynb_checkpoints/sec04_4_1-checkpoint.ipynb
+chpt04/.ipynb_checkpoints/sec04_4_2-checkpoint.ipynb
+chpt04/Untitled.ipynb
+chpt04/_BKPS/.ipynb_checkpoints/sec04_1_2-Copy1-checkpoint.ipynb
+chpt04/_BKPS/.ipynb_checkpoints/sec04_4_2-Copy1-checkpoint.ipynb
+scripts/Untitled.ipynb

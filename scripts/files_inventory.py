@@ -20,24 +20,24 @@ rootPath = os.path.dirname(os.getcwd())
 # Lendo o csv
 aqmData = pd.read_csv(rootPath+'/data/Monitoramento_QAr_BR.csv')
 
-# Substitui vírgulas por pontos
-aqmData['LATITUDE'] = aqmData['LATITUDE'].str.replace(',', '.', regex=False)
+# # Substitui vírgulas por pontos
+# aqmData['LATITUDE'] = aqmData['LATITUDE'].str.replace(',', '.', regex=False)
 
-# Substitui 'x' e '-' por NaN
-aqmData['LATITUDE'] = aqmData['LATITUDE'].replace(['x', '-','Nao declarado'], np.nan)
+# # Substitui 'x' e '-' por NaN
+# aqmData['LATITUDE'] = aqmData['LATITUDE'].replace(['x', '-','Nao declarado'], np.nan)
 
-# Converte para float, caso ainda esteja como string
-aqmData['LATITUDE'] = aqmData['LATITUDE'].astype(float)
+# # Converte para float, caso ainda esteja como string
+# aqmData['LATITUDE'] = aqmData['LATITUDE'].astype(float)
 
 
-# Substitui vírgulas por pontos
-aqmData['LONGITUDE'] = aqmData['LONGITUDE'].str.replace(',', '.', regex=False)
+# # Substitui vírgulas por pontos
+# aqmData['LONGITUDE'] = aqmData['LONGITUDE'].str.replace(',', '.', regex=False)
 
-# Substitui 'x' e '-' por NaN
-aqmData['LONGITUDE'] = aqmData['LONGITUDE'].replace(['x', '-','Nao declarado'], np.nan)
+# # Substitui 'x' e '-' por NaN
+# aqmData['LONGITUDE'] = aqmData['LONGITUDE'].replace(['x', '-','Nao declarado'], np.nan)
 
-# Converte para float, caso ainda esteja como string
-aqmData['LONGITUDE'] = aqmData['LONGITUDE'].astype(float)
+# # Converte para float, caso ainda esteja como string
+# aqmData['LONGITUDE'] = aqmData['LONGITUDE'].astype(float)
 
 
 col = 'ANOS_MONITORADOS'
@@ -62,15 +62,20 @@ for index, row in aqmData.iterrows():
                 #print("Coluna VALOR existe")
                 df_cleaned = df.dropna(subset=['VALOR'])
                 inicio = df_cleaned.DATETIME.min()
+                print(inicio)
                 final = df_cleaned.DATETIME.max()
-                aqmData.loc[index,'INICIO'] = inicio
-                aqmData.loc[index,'FIM'] = final
-                fig = tsf.iterative_timeseries(df,row)
-                anos_monitorados = df.loc[df["VALOR"].notna(), "ANO"].unique()
-                anos_monitorados = sorted(anos_monitorados)
-                anos_monitorados = [item for item in anos_monitorados if not np.isnan(item)]
-                anos_monitorados = [int(x) for x in anos_monitorados]
-                aqmData.loc[index,'ANOS_MONITORADOS'] = ",".join(map(str, anos_monitorados)) 
+                print(final)
+                if inicio == np.nan or final == np.nan:
+                    temDados.append(False)
+                else:
+                    aqmData.loc[index,'INICIO'] = inicio
+                    aqmData.loc[index,'FIM'] = final
+                    fig = tsf.iterative_timeseries(df,row)
+                    anos_monitorados = df.loc[df["VALOR"].notna(), "ANO"].unique()
+                    anos_monitorados = sorted(anos_monitorados)
+                    anos_monitorados = [item for item in anos_monitorados if not np.isnan(item)]
+                    anos_monitorados = [int(x) for x in anos_monitorados]
+                    aqmData.loc[index,'ANOS_MONITORADOS'] = ",".join(map(str, anos_monitorados)) 
                 
             elif 'CONC' in df.columns:
                 df = df.rename(columns={'CONC': 'VALOR'})

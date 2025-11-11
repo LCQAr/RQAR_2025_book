@@ -177,7 +177,7 @@ def _center_from_bounds(gdf_ll: gpd.GeoDataFrame) -> tuple[float, float]:
 # Função principal
 # =========================
 def build_map_varbuf(
-    file: str = "rep_espacial/outputs/rep_espacial.csv",
+    file: str = "/home/nobre/Notebooks/RQAR_2025_book/scripts/rep_espacial/09_formatar_e_salvar_outputs/outputs/rep_espacial.csv",
     rootPath: str | Path | None = None,
     year: int = 2024,
     pixelSize: int = 30 * 30,
@@ -320,15 +320,21 @@ def build_map_varbuf(
             + "".join(rows) + "</table>"
         )
 
+        popup_html = f"""
+        <div style="max-height:400px;overflow-y:auto;overflow-x:hidden;
+                    width:500px;padding-right:6px;">
+        {header_html}<br>{table_html}
+        </div>
+        """
         folium.CircleMarker(
             location=(lat, lon),
-            radius=5,  # 🔹 marcador pequeno
+            radius=5,
             color="#444444",
             fill=True,
             fill_color="#444444",
             fill_opacity=0.9,
             weight=1,
-            popup=folium.Popup(header_html + "<br>" + table_html, max_width=520),
+            popup=folium.Popup(popup_html, max_width=520),
             tooltip=f"Estação: {sid}",
         ).add_to(layer_all)
 
@@ -360,7 +366,12 @@ def build_map_varbuf(
         header.append(f"<b>Buffer:</b> {rep_txt}")
 
         html = "<br>".join(header) + f"<br><b>Predominância:</b> {escape(str(pred)) if pd.notna(pred) else '—'}"
-
+        popup_html = f"""
+        <div style="max-height:400px;overflow-y:auto;overflow-x:hidden;
+                    width:500px;padding-right:6px;">
+        {html}<br><b>Composição:</b><br>{comp}
+        </div>
+        """
         folium.Circle(
             location=(lat, lon),
             radius=float(rep),
@@ -369,9 +380,10 @@ def build_map_varbuf(
             fill=True,
             fill_color=color,
             fill_opacity=0.3,
-            popup=folium.Popup(html + "<br><b>Composição:</b><br>" + comp, max_width=520),
+            popup=folium.Popup(popup_html, max_width=520),
             tooltip=f"{pol} — Predom.: {pred}" if pd.notna(pred) else f"{pol}",
         ).add_to(layer_by_pol[pol])
+
 
     # =====================
     # Extras

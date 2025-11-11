@@ -281,7 +281,7 @@ df_files_years.to_csv('/home/nobre/Notebooks/RQAR_2025_book/data/RJ_STATIONS_ANO
 import pathlib
 
 directory_path = '/home/nobre/Notebooks/RQAR_2025_book/data/DADOS_BRUTOS/RJ/RJ/' 
-directory_out = '/home/nobre/Notebooks/RQAR_2025_book/data/MQAr_teste/' 
+directory_out = '/home/nobre/Notebooks/RQAR_2025_book/data/MQAr/' 
 
 mapping = {
     "3": "007",
@@ -368,5 +368,5 @@ for ii, row in unique_df.iterrows():
         name_file = table_pols.loc[table_pols['COD_POLUENTE'] == int(row['nosso_parametro']), 'NOME_PASTA'].values[0]
         combined_df.to_csv(directory_out+name_file+'/RJ'+str(row['ESTACAO']).zfill(4)+'RA'+str(row['nosso_parametro']).zfill(3)+'.csv', index=False)
     else:
-        combined_df.to_csv(directory_out+'RJ'+str(row['ESTACAO']).zfill(4)+'MA'+str(row['PARAMETRO']).zfill(3)+'.csv', index=False)
+        combined_df.to_csv(directory_out+'METEOROLOGICO/RJ'+str(row['ESTACAO']).zfill(4)+'MA'+str(row['PARAMETRO']).zfill(3)+'.csv', index=False)
     

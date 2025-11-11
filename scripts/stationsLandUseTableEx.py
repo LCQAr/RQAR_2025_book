@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """
 Versão compatível com build (Jupyter Book) da tabela de uso do solo.
-Gera HTML autossuficiente (com DataTables carregado via CDN).
+Gera HTML autossuficiente (com DataTables carregado via CDN) — sem linhas entre colunas.
 """
 
 import os
@@ -69,8 +69,6 @@ def land_use_table_interactive(
     # Salva como HTML leve e reutilizável
     # =========================
     if save_html:
-        print("💾 Salvando tabela renderizada em _static/html (com bandeiras embutidas)...")
-
         html_table = df.to_html(
             index=False, escape=False, table_id="usoSoloTable", classes="display compact stripe"
         )
@@ -86,12 +84,37 @@ def land_use_table_interactive(
 <link rel="stylesheet" href="https://cdn.datatables.net/searchpanes/2.2.0/css/searchPanes.dataTables.min.css">
 <link rel="stylesheet" href="https://cdn.datatables.net/select/1.7.0/css/select.dataTables.min.css">
 <style>
-body {{ font-family: Arial, sans-serif; margin: 10px; }}
-table.dataTable thead th {{ background-color: #f5f5f5; }}
+body {{
+  font-family: Arial, sans-serif;
+  margin: 10px;
+}}
+h3 {{
+  font-family: Arial;
+  margin-bottom: 10px;
+}}
+table.dataTable thead th {{
+  background-color: #f5f5f5;
+}}
+/* 🔹 Remove todas as linhas entre colunas e linhas */
+table.dataTable,
+table.dataTable th,
+table.dataTable td {{
+  border: none !important;
+  border-collapse: collapse !important;
+}}
+/* 🔹 Linhas alternadas suaves */
+table.dataTable.stripe tbody tr.odd,
+table.dataTable.display tbody tr.odd {{
+  background-color: #fafafa;
+}}
+/* 🔹 Ajuste de espaçamento */
+table.dataTable td {{
+  padding: 6px 8px !important;
+}}
 </style>
 </head>
 <body>
-<h3 style="font-family:Arial; margin-bottom:10px;">Uso do Solo por Estação e Poluente</h3>
+<h3>Uso do Solo por Estação e Poluente</h3>
 {html_table}
 <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
 <script src="https://cdn.datatables.net/1.13.8/js/jquery.dataTables.min.js"></script>
@@ -110,8 +133,8 @@ $(document).ready(function() {{
         cascadePanes: true
     }},
     columnDefs: [
-        {{ searchPanes: {{ show: true }}, targets: [1,2,3] }},  // 🔹 Apenas UF, ID_OEMA e POLUENTE
-        {{ searchPanes: {{ show: false }}, targets: '_all' }}   // 🔹 Desativa nas demais
+        {{ searchPanes: {{ show: true }}, targets: [1,2,3] }},  // UF, ID_OEMA e POLUENTE
+        {{ searchPanes: {{ show: false }}, targets: '_all' }}   // Desativa nas demais
     ]
   }});
 }});
@@ -120,9 +143,6 @@ $(document).ready(function() {{
 </html>
 """
         html_path.write_text(html_code, encoding="utf-8")
-        print(f"✅ HTML salvo em: {html_path}")
-
-        
 
     if open_in_notebook:
         from IPython.display import HTML

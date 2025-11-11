@@ -60,6 +60,7 @@ columns_names = {
     'REFERENCIA':   'Referência',
     'REFERÊNCIA':   'Referência',
     'N':   'Não identificada',
+    'Nao declarado': 'Não declarado',
     
     
 }
@@ -189,10 +190,10 @@ def spatial_rede_monitoramento(columnRef,columnsToltip,cmap):
     
     # Lendo o csv
     aqmData = pd.read_csv(rootPath+'/data/Monitoramento_QAr_BR.csv')
-    aqmData['CATEGORIA'] = aqmData['CATEGORIA'].str.replace(' ', '') 
-    aqmData['ID_OEMA'] = aqmData['ID_OEMA'].str.replace(' ', '') 
-    aqmData['POLUENTE'] = aqmData['POLUENTE'].str.upper()
-    aqmData.drop(aqmData.columns[aqmData.columns.str.contains('unnamed', case=False)], axis=1, inplace=True)
+    #aqmData['CATEGORIA'] = aqmData['CATEGORIA'].str.replace(' ', '') 
+    #aqmData['ID_OEMA'] = aqmData['ID_OEMA'].str.replace(' ', '') 
+    #aqmData['POLUENTE'] = aqmData['POLUENTE'].str.upper()
+    #aqmData.drop(aqmData.columns[aqmData.columns.str.contains('unnamed', case=False)], axis=1, inplace=True)
     # Remove colunas com todos valores iguais a NaN
     #aqmData = aqmData.dropna(axis=1, how='all')
     #print(aqmData.head)
@@ -202,9 +203,11 @@ def spatial_rede_monitoramento(columnRef,columnsToltip,cmap):
 
     
     # Agrupamento por estado quando tivermos mais de uma fonte de informação
-    aqmData = aqmData.fillna('-')
-    remaining_columns = aqmData.columns[(aqmData.columns != 'POLUENTE') & (aqmData.columns != 'ID_MMA_COMPLETO') & (aqmData.columns != 'COD_POLUENTE')].tolist()
-    
+    #aqmData = aqmData.fillna('-')
+    remaining_columns = aqmData.columns[(aqmData.columns != 'POLUENTE') & (aqmData.columns != 'ID_MMA_COMPLETO') & (aqmData.columns != 'COD_POLUENTE') & 
+        (aqmData.columns != 'CALIBRACAO') & (aqmData.columns != 'ANOS_MONITORADOS')
+        & (aqmData.columns != 'INICIO') & (aqmData.columns != 'FIM') & (aqmData.columns != 'BASE_DADOS')].tolist()
+  
     
     # Agrupamento por estado quando tivermos mais de uma fonte de informação
     aqmDataGrouped = aqmData.groupby(remaining_columns).agg({
@@ -215,6 +218,14 @@ def spatial_rede_monitoramento(columnRef,columnsToltip,cmap):
     # Cria uma coluna com número de poluentes medidos
     aqmDataGrouped['N° Poluentes Medidos'] = aqmDataGrouped['POLUENTE'].apply(lambda x: len(x.split(',')))
 
+        # Forçar conversão numérica e eliminar valores inválidos
+    aqmDataGrouped['LONGITUDE'] = pd.to_numeric(aqmDataGrouped['LONGITUDE'], errors='coerce')
+    aqmDataGrouped['LATITUDE']  = pd.to_numeric(aqmDataGrouped['LATITUDE'], errors='coerce')
+    
+    # Remover linhas com coordenadas ausentes
+    aqmDataGrouped = aqmDataGrouped.dropna(subset=['LONGITUDE', 'LATITUDE'])
+
+
     # Transforma em geodataframe
     gdf = gpd.GeoDataFrame(
         aqmDataGrouped, geometry=gpd.points_from_xy(aqmDataGrouped.LONGITUDE, aqmDataGrouped.LATITUDE), crs="EPSG:4326"
@@ -222,11 +233,13 @@ def spatial_rede_monitoramento(columnRef,columnsToltip,cmap):
     #print(gdf.head)
     # Renomeando colunas com primeira letra em maiúsculo
     gdf = columns_renamer(gdf)
-
+    gdf['Status'] = gdf['Status'].str.replace('Nao declarado', 'Não declarado')
+    gdf['Categoria'] = gdf['Categoria'].str.replace('Nao declarado', 'Não declarado')
+    gdf['Categoria'] = gdf['Categoria'].str.replace('Referencia', 'Referência')
     #print(gdf.Categoria.unique().shape[0])
     if (gdf.Categoria.unique().shape[0]==3) & (columnRef=='Categoria'):
         # Original colormap
-        gdf.loc[gdf.Categoria=='N', 'Categoria'] = 'Não identificada'
+        gdf.loc[gdf.Categoria=='Nao declarado', 'Categoria'] = 'Não declarado'
         cmap = ListedColormap(["orange",'gray', "green"])
         # Get the list of colors from the existing colormap
         colors = cmap.colors
@@ -256,8 +269,6 @@ def spatial_rede_monitoramento(columnRef,columnsToltip,cmap):
     
     return gdf.explore(column=columnRef, tooltip=columnsToltip,
                        marker_kwds={"radius": 5},m=base_map,cmap=cmap, legend=True)
-
-
 
 
 
