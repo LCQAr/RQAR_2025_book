@@ -1,0 +1,262 @@
+# 4.2. Análise de tendências qualidade do ar no Brasil
+ 
+<div style="text-align: justify">Essa seção do relatório apresenta a avaliação de tendências para os poluentes CO, NO₂, SO₂, MP₂,₅, MP₁₀ e O₃, considerando apenas as estações de monitoramento com mínimo de três anos de dados anuais representativos. A representatividade temporal dos dados foi definida com base nos critérios do Guia de Qualidade do Ar do Ministério do Meio Ambiente (MMA) <cite id="ugd9u"><a href="#zotero%7C22267313%2FM8BLF2PV">(BRASIL, 2020)</a></cite>. Os anos classificados como não representativos foram tratados como anos inválidos e excluídos da análise.  </div><br/>
+
+<div style="text-align: justify"> As tendências foram avaliadas a partir de duas técnicas estatísticas não paramétricas: (a) Teste de Mann-Kendall <cite id="4upk7"><a href="#zotero%7C22267313%2FDU9T875Z">(Kendall, 1975;</a></cite><cite id="kj7hi"><a href="#zotero%7C22267313%2FSZ2IVHYQ">Mann, 1945)</a></cite>, empregado para determinar a significância estatística e a direção da tendência (aumento, redução ou ausência de tendência); (b) Estimador de Theil-Sen <cite id="t6gj1"><a href="#zotero%7C22267313%2F8JWKXLKE">(Theil, 1950)</a></cite>, utilizado para calcular a declividade da tendência.  </div><br/>
+
+<div style="text-align: justify"> As análises foram realizadas com base em médias anuais representativas e resultam em indicadores de tendência individualizados para cada estação e poluente. A mudança percentual anual foi estimada a partir da declividade calculada pelo método de Theil-Sen em relação à mediana da série histórica de cada poluente e estação.  </div><br/>
+
+<div style="text-align: justify"> O mapa interativo (Figura 34) apresentado a seguir possibilita a visualização desses resultados em todas as estações de monitoramento da qualidade do ar no Brasil. A interface permite explorar o período de análise (ano inicial e final considerado), a ocorrência de anos inválidos, o p-valor do teste de Mann-Kendall, a declividade estimada, a mediana da série e o percentual anual de mudança para cada estação e poluente. Essa visualização espacial possibilita a identificação dos locais onde a qualidade do ar vem melhorando, se mantendo estável ou se deteriorando.  </div><br/>
+
+<div style="text-align: justify"> A Tabela 21 mostra uma síntese das tendências de CO, NO2, SO2, MP2,5, MP10 e O3. A tabela interativa possibilita filtrar a UF de interesse e visualizar as tendências nas concentrações dos poluentes registradas nas estações. Foram incluídas na Tabela 21 apenas as estações com tendências significativas. </div><br/>
+
+
+```{tip}
+A Figura 34 possibilita a seleção de cada poluente para a visualização das tendências. Ao clicar no popup de cada ponto de monitoramento, o usuário pode visualizar o nome da estação, o período de análise, o número de anos invalidados e os resultados da análise de tendências.
+```
+
+<style>
+#map-controls { display:flex; flex-wrap:wrap; gap:12px; align-items:center; margin-bottom:12px; font-family:Arial, sans-serif; }
+.control { display:flex; align-items:center; gap:8px; height:40px; }
+.control-label { font-size:14px; font-weight:500; color:#333; white-space:nowrap; }
+.select-wrap { position:relative; display:inline-block; width:120px; height:32px; }
+.select-wrap select { appearance:none; display:block; width:100%; height:100%; padding:6px 34px 6px 10px; font-size:14px; border-radius:6px; border:1px solid #999; background:#f9f9f9; cursor:pointer; }
+.select-wrap::after{ content:""; position:absolute; pointer-events:none; top:50%; transform:translateY(-50%); right:10px; width:12px; height:12px; background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 6'><path fill='%23333' d='M0 0l5 6 5-6z'/></svg>"); background-repeat:no-repeat; background-size:12px 12px; }
+.control-button { height:32px; padding:0 16px; line-height:32px; border-radius:6px; border:1px solid #005a9e; background:#0078d7; color:#fff; cursor:pointer; font-weight:600; margin-left:auto; text-align:center; }
+.control-button:hover{ background:#005a9e; }
+#status { font-size:13px; color:crimson; margin-left:8px; }
+#leafletMap{ width:100%; height:640px; border:1px solid #ddd; display:none; margin-top:8px; }
+
+/* legenda customizada (gradiente) */
+.leaflet-control.custom-legend { background:white; padding:8px; border-radius:4px; box-shadow:0 1px 4px rgba(0,0,0,0.2); font-size:13px; }
+.legend-gradient { height:12px; width:180px; border-radius:3px; margin:6px 0; display:block; }
+.legend-labels { display:flex; justify-content:space-between; gap:8px; font-size:12px; }
+.legend-symbol { display:inline-block; width:14px; height:14px; margin-right:4px; vertical-align:middle; border:1px solid #222; }
+</style>
+
+<div id="map-controls">
+  <div class="control">
+    <span class="control-label">Poluente:</span>
+    <div class="select-wrap">
+      <select id="sel-poll">
+        <option>O3</option>
+        <option>CO</option>
+        <option>NO2</option>
+        <option>MP25</option>
+        <option>MP10</option>
+        <option>SO2</option>
+      </select>
+    </div>
+  </div>
+
+  <div class="control" style="flex:1">
+    <button id="btn-load" class="control-button">Gerar mapa</button>
+    <span id="status"></span>
+  </div>
+</div>
+
+<div id="leafletMap"></div>
+
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+<script>
+(function(){
+  const basePath = "../_static/preprocessed_trends/";
+  const selP = document.getElementById('sel-poll');
+  const btn  = document.getElementById('btn-load');
+  const status = document.getElementById('status');
+  const mapDiv = document.getElementById('leafletMap');
+
+  const tilesDefs = {
+    "OpenStreetMap": { url: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', attribution:'© OpenStreetMap' },
+    "CartoDB Positron": { url: 'https://cartodb-basemaps-a.global.ssl.fastly.net/light_all/{z}/{x}/{y}.png', attribution:'© OpenStreetMap, © CartoDB' },
+    "Esri WorldImagery": { url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', attribution:'Tiles © Esri' }
+  };
+
+  let map = null;
+  let ptsLayer = null;
+  let baseLayers = {};
+  let layerControl = null;
+  let legendControl = null;
+
+  function polToSafeKey(pol){ return String(pol).toLowerCase().replace(/[^a-z0-9]+/g,''); }
+  function fetchJsonMaybe(url){ return fetch(url).then(resp => resp.ok ? resp.json() : null).catch(e=>{ console.error(e); return null; }); }
+
+  function ensureMap(){
+    if(map) return;
+    map = L.map('leafletMap').setView([-15.78, -47.9], 4);
+    Object.keys(tilesDefs).forEach((name, idx) => {
+      const def = tilesDefs[name];
+      baseLayers[name] = L.tileLayer(def.url, { maxZoom: 19, attribution: def.attribution });
+      if(idx===0) baseLayers[name].addTo(map);
+    });
+    layerControl = L.control.layers(baseLayers, {}, { collapsed: false }).addTo(map);
+  }
+
+  function hexToRgb(hex){ hex=hex.replace('#',''); if(hex.length===3) hex=hex.split('').map(c=>c+c).join(''); const bigint=parseInt(hex,16); return [(bigint>>16)&255,(bigint>>8)&255, bigint&255]; }
+  function rgbToHex(r,g,b){ return '#' + [r,g,b].map(x=>{const h=x.toString(16); return h.length===1?'0'+h:h;}).join(''); }
+  function interpHex(a,b,t){ const aa=hexToRgb(a), bb=hexToRgb(b); return rgbToHex(Math.round(aa[0]+(bb[0]-aa[0])*t), Math.round(aa[1]+(bb[1]-aa[1])*t), Math.round(aa[2]+(bb[2]-aa[2])*t)); }
+
+  const darkBlue="#08306b", lightBlue="#deebf7", lightRed="#fee0d2", darkRed="#a50f15";
+
+  function colorForPercent(val,minV,maxV){
+    if(val==null || isNaN(val)) return "#666666";
+    const v=Number(val);
+    if(minV>=0 && maxV>=0) return interpHex(lightRed,darkRed,(v-minV)/(maxV-minV||1));
+    if(minV<=0 && maxV<=0) return interpHex(darkBlue,lightBlue,(v-minV)/(maxV-minV||1));
+    if(v<0) return interpHex(darkBlue,lightBlue,(v-minV)/(0-minV||1));
+    return v>0?interpHex(lightRed,darkRed,(v-0)/(maxV-0||1)):"#ffffff";
+  }
+
+  function buildPopup(p){
+    function fmt(v){ return (v==null||v==""||isNaN(v))?"n/a":Number(v).toFixed(3); }
+    const s=p.station||p.estacao||"n/a", id=p.ID_OEMA||p.id_oema||"n/a";
+    const n_valid=p.n_valid_years||0, n_invalid=p.invalid_years||"";
+    const pval=("p_value" in p)?fmt(p.p_value):"n/a", slope=("slope" in p)?fmt(p.slope):"n/a";
+    const median=("median" in p)?fmt(p.median):"n/a", percent=("percent_change" in p)?fmt(p.percent_change):"n/a";
+    const periodo=(p.start_year&&p.end_year)?`${p.start_year} - ${p.end_year}`:"n/a";
+    return `<b>ID Estação:</b> ${s}<br/><b>Estação:</b> ${id}<br/><b>Período:</b> ${periodo}<br/><b>Anos inválidos:</b> ${n_invalid}<br/><b>p-valor:</b> ${pval}<br/><b>Declividade:</b> ${slope}<br/><b>Mediana:</b> ${median}<br/><b>% mudança:</b> ${percent}`;
+  }
+
+  function addLegend(minV,maxV){
+    if(legendControl){ try{ legendControl.remove(); } catch{} legendControl=null; }
+    legendControl=L.control({position:'bottomright'});
+    legendControl.onAdd=function(){
+      const div=L.DomUtil.create('div','leaflet-control custom-legend');
+      div.innerHTML=`<strong>Mudança anual (%)</strong>`;
+      let gradHtml='';
+      if(minV<0 && maxV>0) gradHtml=`<div class="legend-gradient" style="background:linear-gradient(to right, ${darkBlue} 0%, ${lightBlue} 49%, ${lightRed} 51%, ${darkRed} 100%);"></div>`;
+      else if(maxV<=0) gradHtml=`<div class="legend-gradient" style="background:linear-gradient(to right, ${darkBlue}, ${lightBlue});"></div>`;
+      else gradHtml=`<div class="legend-gradient" style="background:linear-gradient(to right, ${lightRed}, ${darkRed});"></div>`;
+      div.innerHTML+=gradHtml;
+      div.innerHTML+=`<div class="legend-labels"><span>${isNaN(minV)?"n/a":minV.toFixed(3)}</span><span>0</span><span>${isNaN(maxV)?"n/a":maxV.toFixed(3)}</span></div>`;
+      div.innerHTML+=`<div style="margin-top:4px;"><span class="legend-symbol" style="background:#cccccc;border:1px solid #222;border-radius:50%;"></span> Não significativo (p ≥ 0.05)</div>`;
+      div.innerHTML+=`<div style="margin-top:2px;"><span class="legend-symbol" style="background:#ffffff;border:1px solid #222;border-radius:50%;"></span> Período insuficiente</div>`;
+      div.innerHTML+=`<div style="margin-top:2px;"><span class="legend-symbol" style="width:0;height:0;border-left:7px solid transparent;border-right:7px solid transparent;border-bottom:12px solid #a50f15;display:inline-block;"></span> Tendência positiva</div>`;
+      div.innerHTML+=`<div style="margin-top:2px;"><span class="legend-symbol" style="width:0;height:0;border-left:7px solid transparent;border-right:7px solid transparent;border-top:12px solid #08306b;display:inline-block;"></span> Tendência negativa</div>`;
+      return div;
+    };
+    legendControl.addTo(map);
+  }
+
+  btn.addEventListener('click', async function(){
+    try{
+      status.textContent=''; mapDiv.style.display='block'; ensureMap();
+      if(ptsLayer){ try{ map.removeLayer(ptsLayer); } catch{} ptsLayer=null; }
+
+      const polSel=selP.value, key=polToSafeKey(polSel), fname=`${key}_stations.geojson`, url=basePath+fname;
+      status.textContent='Carregando GeoJSON...';
+      const gj=await fetchJsonMaybe(url);
+      if(!gj || !gj.features || gj.features.length===0){ status.textContent=`GeoJSON não encontrado ou sem feições: ${fname}`; return; }
+
+      // apenas valores significativos na legenda
+      const signifVals=gj.features.map(f=>{
+        const p=f.properties||{};
+        const pv=p.p_value;
+        if(pv===null||pv===undefined||pv===""||isNaN(Number(pv))) return null;
+        if(Number(pv)>=0.05) return null;
+        const v=('percent_change' in p)?Number(p.percent_change):NaN;
+        return isNaN(v)?null:v;
+      }).filter(v=>v!==null);
+
+      if(signifVals.length===0){ status.textContent=`Nenhuma estação significativa (p<0.05) em ${fname}`; return; }
+
+      const minV=Math.min(...signifVals), maxV=Math.max(...signifVals);
+
+      ptsLayer=L.geoJSON(gj,{
+        pointToLayer:(f,latlng)=>{
+          const p=f.properties||{};
+          let pv=p.p_value;
+          if(pv===null||pv===undefined||pv===""||isNaN(Number(pv))){
+            return L.circleMarker(latlng,{radius:7,fillColor:"#ffffff",color:"#000000",weight:1,fillOpacity:0.95});
+          }
+          pv=Number(pv);
+          const val=('percent_change' in p)?Number(p.percent_change):NaN;
+          if(pv>=0.05) return L.circleMarker(latlng,{radius:7,fillColor:"#cccccc",color:"#222",weight:0.6,fillOpacity:0.95});
+          const color=colorForPercent(val,minV,maxV), size=14, up=val>0;
+          const html=up?`<svg width="${size}" height="${size}" viewBox="0 0 14 14"><polygon points="7,0 0,14 14,14" fill="${color}" stroke="black" stroke-width="1"/></svg>`:
+                        `<svg width="${size}" height="${size}" viewBox="0 0 14 14"><polygon points="0,0 14,0 7,14" fill="${color}" stroke="black" stroke-width="1"/></svg>`;
+          return L.marker(latlng,{icon:L.divIcon({className:'',iconSize:[size,size],html:html})});
+        },
+        onEachFeature:(f,layer)=>layer.bindPopup(buildPopup(f.properties||{}))
+      }).addTo(map);
+
+      layerControl.addOverlay(ptsLayer,"Estações (Mudança %)");
+      addLegend(minV,maxV);
+
+      const fg=L.featureGroup([ptsLayer]);
+      if(fg.getBounds && fg.getBounds().isValid()) map.fitBounds(fg.getBounds(),{padding:[20,20]});
+      status.textContent='';
+    } catch(err){ console.error(err); status.textContent='Erro ao gerar o mapa (ver console)'; }
+  });
+
+})();
+</script>
+
+<br/>
+<p style="text-align:center; color:#636D7D; font-size:15.5px;">
+  <em>Fig. 34</em> Mapa interativo das tendências interanuais de CO, NO₂, SO₂, MP₂,₅, MP₁₀ e O₃ no Brasil.
+</p>
+
+
+```{note}
+Na Tabela 21, as tendências que não foram significativas ou que não puderam ser analisadas para determinado poluente estão indicadas como “NaN”.
+```
+
+<iframe src="../_static/tendencias/tabela_tendencias.html" width="100%" height="800" style="border:none;"></iframe>
+
+<br/>
+
+<p style="text-align:center; color:#636D7D; font-size:15.5px;">
+  <em>Tabela 21 -</em>  Tendências por UF e estação.  
+</p><br/>
+
+<div style="text-align: justify"> Na Figura 34, os círculos brancos representam as estações com período insuficiente de dados anuais representativos para a análise de tendência. Os círculos cinza indicam tendências não significativas (p ≥ 0,05), refletindo a ausência de variação estatisticamente detectável nas concentrações ao longo do período disponível para cada estação. Essa condição pode estar associada à extensão temporal muito curta ou muito longa dos dados considerados, o que reduz a sensibilidade do teste estatístico. </div><br/>
+
+<div style="text-align: justify"> Os triângulos vermelhos indicam tendência positiva significativa (p < 0,05), ou seja, aumento das concentrações no período analisado, enquanto os triângulos invertidos azuis representam tendência negativa significativa, correspondendo à redução das concentrações do respectivo poluente. Uma síntese dos resultados para cada poluente é apresentada a seguir: </div><br/>
+
+#### Ozônio (O₃)
+
+<div style="text-align: justify"> Os resultados indicaram tendências de aumento de O₃ até ~11%, com maior evidência nos estados do RJ (estações Lab. INEA, Lourenço Jorge, Porto das Caixas e Sambaetiba), MG (estações Basílica e Lobo Leite), ES (EMQAR Sul 04) e BA (estações Lamarão, Câmara e Escola). As maiores magnitudes de aumento de O₃ foram detectadas em MG.  </div><br/>
+
+<div style="text-align: justify"> Por outro lado, foram observadas tendências de redução de O₃ até cerca de -3,5%, especialmente em SP e RJ, que representam os estados com maior densidade de estações de monitoramento da qualidade do ar. Também foram identificados casos isolados de redução de O₃ em MG (estações Bom Retiro e Cidade Nobre) e RS (Guaíba Parque 35). </div><br/>
+
+#### Monóxido de Carbono (CO)
+
+<div style="text-align: justify"> Foram detectadas tendências de aumento de CO até 17%, restritas a poucas localidades, incluindo RS (estação Canoas - P. Universitário), RJ (estação Lourenço Jorge) e PE (estação RNEST - Escola Ipojuca). A maior magnitude de aumento de CO foi detectada no RS.  </div><br/>
+
+<div style="text-align: justify"> Em contrapartida, tendências de redução de CO até -9,5% foram detectadas de forma mais ampla, principalmente em SP, RJ e ES, com ocorrências adicionais no PR (estação BOQ) e BA (estação Machadinho e Gravatá). </div><br/>
+
+#### Dióxido de Nitrogênio (NO₂)
+
+<div style="text-align: justify"> Os resultados indicaram tendências positivas de NO₂ até 22%, detectadas em SP (estações Paulínia Sul e Limeira), RJ (estação Mato Escuro - 5º Distrito), ES (RGV6 - Ibes), MG (estações Lobo Leite e Centro Administrativo Betim), BA (estações Escola, Gravatá, Leandrinho e Concórdia) e PE (estação RNEST - Escola Ipojuca). A tendência positiva de NO₂ com maior magnitude foi detectada no RJ.  </div><br/>
+
+<div style="text-align: justify"> Foram detectadas tendências negativas de NO₂ até -12%, com predominância em SP e RJ, além de ocorrências em MG (estações Bom Retiro e Cidade Nobre). </div><br/>
+
+#### Dióxido de Enxofre (SO₂)
+
+<div style="text-align: justify"> Foram detectadas tendências de aumento de SO₂ até 16%, concentradas no RJ (estações Largo do Bodegão, Adalgisa Nery e Monte Serrat), MG (estação Centro Administrativo Betim) e ES (estação EMQAR Sul 06). As maiores magnitudes de aumento de SO₂ ocorreram no ES.  </div><br/>
+
+<div style="text-align: justify"> As tendências de redução de SO₂ alcançaram -20%, distribuídas principalmente entre SP e RJ Janeiro, com reduções adicionais no PR (estação Fospar), ES (RGV6 - Ibes e RGV4 - Enseada do Suá), MG (estações Cariru, Cidade Nobre e Veneza) e BH (estações Câmara, Gravatá e Cobre).  </div><br/>
+
+#### Material Particulado Fino (MP₂,₅)
+
+<div style="text-align: justify"> Foram identificadas tendências significativas de redução de MP₂,₅, variando entre -8,4% e -1,6%. As reduções ocorreram em SP (estações Santos - Ponta da Praia, São Bernardo - Centro, Grajaú - Parelheiros e Congonhas) e ES (estação RGV4 - Enseada do Suá).   </div><br/>
+
+#### Material Particulado Inalável (MP₁₀)
+
+<div style="text-align: justify"> As tendências de aumento de MP₁₀ atingiram até ~23%, detectadas no RJ (estação Fazenda Saco Dantas) e principalmente em MG (estações Lobo Leite, Novo Plataforma, Centro, Célvia, Escola Sementinha e Senac), sendo a maior magnitude registrada na estação Célvia. </div><br/>
+
+<div style="text-align: justify"> As tendências de redução de MP₁₀ alcançaram -13%, distribuídas principalmente em SP, RJ, MG e ES, com casos adicionais no RS (estações Canoas - P. Universitário), PR (estações UEG e BOQ) e BH (estação Malemba). </div><br/>
+
+### Referências
+
+<!-- BIBLIOGRAPHY START -->
+<div class="csl-bib-body">
+  <div class="csl-entry"><i id="zotero|22267313/M8BLF2PV"></i>BRASIL. <b>Guia Técnico para o Monitoramento e Avaliação da Qualidade do Ar</b>. , 2020. </div>
+  <div class="csl-entry"><i id="zotero|22267313/DU9T875Z"></i>KENDALL, M. G. Rank Correlation Methods. <b>Charles Griffin</b>, v. 4 edn, 1975. </div>
+  <div class="csl-entry"><i id="zotero|22267313/SZ2IVHYQ"></i>MANN, H. B. Nonparametric Tests Against Trend. <b>Econometrica</b>, v. 13, n. 3, p. 245, jul. 1945. </div>
+  <div class="csl-entry"><i id="zotero|22267313/8JWKXLKE"></i>THEIL, H. A rank-invariant method of linear and polynomial regression analysis, Part III. <b>Proc. R. Netherlands Acad. Sci</b>, v. 12, n. 173, 1950. </div>
+</div>
+<!-- BIBLIOGRAPHY END -->

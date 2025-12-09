@@ -1,5 +1,52 @@
-## 2.2. Monitoramento da qualidade do ar
+## 2.2. Emissão, transporte e recepção de poluentes atmosféricos
 
-* Fotos e figuras para exemplificar
-* Tabela com os métodos e referenciar guia de monitoramento
+<div style="text-align: justify"> A presença desses poluentes (reportados na seção 2.1) na atmosfera está diretamente relacionada às fontes que os emitem, sejam elas naturais ou antropogênicas. Essas fontes podem ser classificadas como fixas ou móveis, cada uma com características próprias e diferentes impactos na qualidade do ar <cite id="ge2j7"><a href="#zotero%7C22267313%2FBE8X7KLP">(SOGA, 2025)</a></cite>. </div><br/>
+
+<div style="text-align: justify"> <b><li>Fontes fixas:</b> também chamadas de fontes pontuais ou estacionárias, são instalações ou equipamentos que liberam poluentes de forma contínua ou intermitente, como indústrias, usinas, caldeiras e fornos. Essas fontes permanecem em local fixo e estão entre as principais responsáveis pelas emissões associadas a processos produtivos e geração de energia.</div>
+
+<div style="text-align: justify"> <b><li>Fontes móveis:</b> são meios de transporte e equipamentos que se deslocam e emitem poluentes durante seu funcionamento, como automóveis, caminhões, ônibus, motocicletas, navios, aeronaves, e máquinas móveis. Essas fontes liberam gases e partículas resultantes da combustão de combustíveis fósseis. </div><br/>
+
+<div style="text-align: justify"> A emissão de poluentes ocorre quando substâncias gasosas ou particuladas são lançadas na atmosfera por essas fontes. Após a emissão, os poluentes passam por um processo de dispersão atmosférica, no qual são transportados e diluídos pelo movimento do ar. Esse processo é influenciado por fatores como direção e intensidade dos ventos, topografia, temperatura e condições climáticas (Figura 14). </div><br/>
+
+<div style="text-align: justify"> A recepção dos poluentes acontece quando as substâncias dispersas no ar entram em contato com as pessoas e o meio ambiente. Elas podem ser inaladas ou depositar-se sobre plantas, solos e corpos d’água, completando o ciclo da poluição atmosférica. </div><br/>
+
+```{figure} ../_static/imagens/ciclo_emissao.png
+:width: 80%
+:align: center
+
+O ciclo da poluição atmosférica: Emissão, dispersão e recepção de poluentes no ar.
+```
+
+<br/>
+
+
+
+
+## 2.2. Emissão, transporte e recepção de poluentes atmosféricos
+
+<div style="text-align: justify"> A presença desses poluentes (reportados na seção 2.1) na atmosfera está diretamente relacionada às fontes que os emitem, sejam elas naturais ou antropogênicas. Essas fontes podem ser classificadas como fixas ou móveis, cada uma com características próprias e diferentes impactos na qualidade do ar <cite id="ge2j7"><a href="#zotero%7C22267313%2FBE8X7KLP">(SOGA, 2025)</a></cite>. </div><br/>
+
+<div style="text-align: justify"> <b><li>Fontes fixas:</b> também chamadas de fontes pontuais ou estacionárias, são instalações ou equipamentos que liberam poluentes de forma contínua ou intermitente, como indústrias, usinas, caldeiras e fornos. Essas fontes permanecem em local fixo e estão entre as principais responsáveis pelas emissões associadas a processos produtivos e geração de energia.</div>
+
+<div style="text-align: justify"> <b><li>Fontes móveis:</b> são meios de transporte e equipamentos que se deslocam e emitem poluentes durante seu funcionamento, como automóveis, caminhões, ônibus, motocicletas, navios, aeronaves, e máquinas móveis. Essas fontes liberam gases e partículas resultantes da combustão de combustíveis fósseis. </div><br/>
+
+<div style="text-align: justify"> A emissão de poluentes ocorre quando substâncias gasosas ou particuladas são lançadas na atmosfera por essas fontes. Após a emissão, os poluentes passam por um processo de dispersão atmosférica, no qual são transportados e diluídos pelo movimento do ar. Esse processo é influenciado por fatores como direção e intensidade dos ventos, topografia, temperatura e condições climáticas (Figura 14). </div><br/>
+
+<div style="text-align: justify"> A recepção dos poluentes acontece quando as substâncias dispersas no ar entram em contato com as pessoas e o meio ambiente. Elas podem ser inaladas ou depositar-se sobre plantas, solos e corpos d’água, completando o ciclo da poluição atmosférica. </div><br/>
+
+```{figure} ../_static/imagens/ciclo_emissao.png
+:width: 80%
+:align: center
+
+O ciclo da poluição atmosférica: Emissão, dispersão e recepção de poluentes no ar.
+```
+
+<br/>
+
+<!-- BIBLIOGRAPHY START -->
+<div class="csl-bib-body">
+  <div class="csl-entry"><i id="zotero|22267313/BE8X7KLP"></i>SOGA. <b>State of Global Air Report 2025</b>. , 2025. </div>
+</div>
+<!-- BIBLIOGRAPHY END -->
+
 

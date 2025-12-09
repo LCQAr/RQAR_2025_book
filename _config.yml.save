@@ -1,0 +1,69 @@
+# Book settings
+# Learn more at https://jupyterbook.org/customize/config.html
+
+title: Relatório Anual de Acompanhamento da Qualidade do Ar - 2025
+author: MMA
+logo: media/images/Logo_RQAr.png
+
+# Execute notebooks during build
+execute:
+  execute_notebooks: auto
+  timeout: 600          # tempo máximo por célula (segundos)
+  allow_errors: true     # permite continuar o build mesmo com avisos
+  max_output_size: 100000000  # aumenta limite de tamanho do output (~10 MB)
+  exclude_patterns:
+    - notebooks/qaqc_MMA.ipynb
+    - notebooks/webScraper_MA.ipynb
+    - notebooks/webscraper_purpleAir.ipynb
+AuxiliaCreateSheetEstados.ipynb  
+# LaTeX PDF output filename
+latex:
+  latex_documents:
+    targetname: book.tex
+
+# Bibtex references
+bibtex_bibfiles:
+  - references.bib
+
+# Repository info for GitHub buttons
+repository:
+  url: https://github.com/LCQAr/RQAR_2025_book
+  branch: main
+
+# HTML output options
+html:
+  use_issues_button: true
+  use_repository_button: true
+  use_thebe: true
+  use_hide_code_button: true
+  code_toggle: true
+  extra_footer:
+    <script src="https://unpkg.com/@jupyter-widgets/html-manager@*/dist/embed-amd.js"></script>
+
+
+# Launch buttons for Binder / Thebe
+launch_buttons:
+  binderhub_url: https://mybinder.org
+  thebe: true
+  notebook_interface: jupyterlab  
+
+kernelspec:
+  name: python3
+
+parse:
+  myst_enable_extensions:
+    - raw_html
+
+remove_input_tags:
+  - remove-input
+
+thebe:
+  binderhub_url: "https://mybinder.org"
+  repository_url: "https://github.com/LCQAr/RQAR_2025_book"
+  repository_branch: main
+  kernel_name: python3
+
+sphinx:
+  config:
+    language: pt_BR
+    mathjax_path: https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js

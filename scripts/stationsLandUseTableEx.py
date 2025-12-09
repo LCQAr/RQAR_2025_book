@@ -30,6 +30,19 @@ def land_use_table_interactive(
         raise FileNotFoundError(f"❌ Arquivo não encontrado: {csv_path}")
     df = pd.read_csv(csv_path)
 
+    # >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+    # === Normalizar e limpar poluentes indesejados ===
+    pollutant_map = {
+        "PM10": "MP10",
+        "PM25": "MP25",
+        "PM1": None,   # remover
+        "VOC": None    # remover
+    }
+    if "POLUENTE" in df.columns:
+        df["POLUENTE"] = df["POLUENTE"].replace(pollutant_map)
+        df = df[df["POLUENTE"].notna()]
+    # <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+
     # ======== Seleciona colunas principais ========
     columnsSelector = [
         "UF", "ID_OEMA", "POLUENTE", "REP_ESPACIAL", "GRUPO_PRED_VAR",
@@ -40,6 +53,7 @@ def land_use_table_interactive(
 
     # Renomeia colunas
     df.rename(columns={
+        "POLUENTE": "Poluente", 
         "REP_ESPACIAL": "Buffer (m)",
         "GRUPO_PRED_VAR": "Predominância",
         "Floresta_perc": "Floresta (%)",
@@ -95,19 +109,16 @@ h3 {{
 table.dataTable thead th {{
   background-color: #f5f5f5;
 }}
-/* 🔹 Remove todas as linhas entre colunas e linhas */
 table.dataTable,
 table.dataTable th,
 table.dataTable td {{
   border: none !important;
   border-collapse: collapse !important;
 }}
-/* 🔹 Linhas alternadas suaves */
 table.dataTable.stripe tbody tr.odd,
 table.dataTable.display tbody tr.odd {{
   background-color: #fafafa;
 }}
-/* 🔹 Ajuste de espaçamento */
 table.dataTable td {{
   padding: 6px 8px !important;
 }}
@@ -133,8 +144,8 @@ $(document).ready(function() {{
         cascadePanes: true
     }},
     columnDefs: [
-        {{ searchPanes: {{ show: true }}, targets: [1,2,3] }},  // UF, ID_OEMA e POLUENTE
-        {{ searchPanes: {{ show: false }}, targets: '_all' }}   // Desativa nas demais
+        {{ searchPanes: {{ show: true }}, targets: [1,2,3] }},
+        {{ searchPanes: {{ show: false }}, targets: '_all' }}
     ]
   }});
 }});

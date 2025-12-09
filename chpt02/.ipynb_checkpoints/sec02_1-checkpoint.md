@@ -1,181 +1,129 @@
-## 2.1.	Poluentes, fontes de emissão e dispersão
+## 2.1.	Poluentes e fontes de emissão atmosférica
 
-* Figura ilustrando o processo de  poluição
-* Figura ilustrando o processo de gestão da qualidade do ar e m qual ponto o relatório se encaixa
+<div style="text-align: justify"> Segundo a Resolução Conama nº 506/2024 <cite id="fffdx"><a href="#zotero%7C22267313%2F9AAQZBLZ">(BRASIL, 2024b)</a></cite>, considera-se poluente atmosférico qualquer substância presente no ar em quantidade ou concentração capaz de torná-lo nocivo à saúde humana, prejudicial ao meio ambiente ou incômodo ao bem-estar da população. A seguir, são apresentados os principais poluentes monitorados no Brasil, conforme estabelecido pela Resolução vigente. </div>
 
-<!-- Load Plotly and PapaParse for CSV parsing -->
-<script src="https://cdn.plot.ly/plotly-2.26.1.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+#### Material Particulado (MP)
 
-<div>
-  <label>Station:</label>
-  <select id="stationSelect"></select>
+<div style="text-align: justify"> Material particulado é a mistura de partículas sólidas e gotículas líquidas suspensas no ar, de diferentes tamanhos e composições <cite id="h5yr6"><a href="#zotero%7C22267313%2FBN9W7W3X">(EPA, 2025)</a></cite>. Uma síntese da definição, potenciais fontes emissoras e efeitos na saúde causados pelo MP é apresentada na Figura 4.</div><br/>
 
-  <label>Pollutant:</label>
-  <select id="pollutantSelect"></select>
+```{figure} ../_static/imagens/1.MP.png
+:width: 90%
+:align: center
 
-  <label>Start date:</label>
-  <input type="datetime-local" id="startDate">
+Definição, fontes emissoras e impactos do Material Particulado (MP).
+```
 
-  <label>End date:</label>
-  <input type="datetime-local" id="endDate">
+#### Material Particulado Inalável (MP<sub>10</sub>)
 
-  <button id="updateBtn">Update Plot</button>
+<div style="text-align: justify"> Partículas sólidas ou líquidas suspensas no ar, como poeira, neblina, aerossóis e fuligem, com diâmetro aerodinâmico de até 10 micrômetros (μm) <cite id="fffdx"><a href="#zotero%7C22267313%2F9AAQZBLZ">(BRASIL, 2024b)</a></cite>. A definição, potenciais fontes emissoras e efeitos na saúde causados pelo MP10 são apresentados na Figura 5.</b> </div><br/>
+
+```{figure} ../_static/imagens/3.MP10.png
+:width: 90%
+:align: center
+
+Definição, fontes emissoras e impactos do Material Particulado Inalável (MP<sub>10</sub>).
+```
+
+#### Material Particulado Fino (MP<sub>2,5</sub>)
+
+<div style="text-align: justify"> Partículas ainda mais finas, com diâmetro de até 2,5 micrômetros (μm). São formadas principalmente pela queima de combustíveis fósseis e processos industriais <cite id="fffdx"><a href="#zotero%7C22267313%2F9AAQZBLZ">(BRASIL, 2024b)</a></cite> (Figura 6). </div><br/>
+
+```{figure} ../_static/imagens/2.MP25.png
+:width: 90%
+:align: center
+
+Definição, fontes emissoras e impactos do Material Particulado Fino (MP<sub>2,5</sub>).
+```
+
+#### Dióxido de Enxofre (SO<sub>2</sub>)
+
+<div style="text-align: justify"> Gás incolor e solúvel em água, liberado principalmente pela queima de combustíveis fósseis em indústrias, usinas e sistemas de aquecimento <cite id="2yq64"><a href="#zotero%7C22267313%2FRHYFR842">(CETESB, 2024a)</a></cite> (Figura 7).</div><br/>
+
+```{figure} ../_static/imagens/7.SO2.png
+:width: 90%
+:align: center
+
+Definição, fontes emissoras e impactos do Dióxido de Enxofre (SO<sub>2</sub>).
+```
+
+#### Dióxido de Nitrogênio (NO<sub>2</sub>)
+
+<div style="text-align: justify"> Gás de cor marrom-avermelhada e odor forte, formado na queima de combustíveis em veículos, indústrias e usinas termelétricas. É um oxidante potente e pode participar da formação de ozônio e material particulado <cite id="12ood"><a href="#zotero%7C22267313%2FEVH4BL9V">(OMS, 2024b)</a></cite> (Figura 8).</div><br/>
+
+```{figure} ../_static/imagens/5.NO2.png
+:width: 90%
+:align: center
+
+Definição, fontes emissoras e impactos do Dióxido de Nitrogênio (NO<sub>2</sub>).
+```
+
+#### Ozônio (O<sub>3</sub>)
+
+<div style="text-align: justify"> Gás secundário formado por reações fotoquímicas entre poluentes como óxidos de nitrogênio (NOₓ) e compostos orgânicos voláteis (COVs), sob a ação da luz solar <cite id="12ood"><a href="#zotero%7C22267313%2FEVH4BL9V">(OMS, 2024b)</a></cite>(Figura 9). </div><br/>
+
+```{figure} ../_static/imagens/4.o3.png
+:width: 90%
+:align: center
+
+Definição, fontes emissoras e impactos do Ozônio (O<sub>3</sub>).
+```
+
+#### Fumaça (FMC)
+
+<div style="text-align: justify"> Está relacionada ao material particulado gerado pela queima de combustíveis e outros processos de combustão. Esse parâmetro indica o grau de escurecimento da atmosfera e está diretamente associado à poluição por material particulado <cite id="fl1u6"><a href="#zotero%7C22267313%2FGP9P8M62">(CETESB, 2024b)</a></cite> (Figura 10). </div><br/>
+
+```{figure} ../_static/imagens/9.FMC.png
+:width: 90%
+:align: center
+
+Definição, fontes emissoras e impactos da Fumaça (FMC).
+```
+
+#### Monóxido de Carbono (CO)
+
+<div style="text-align: justify"> Gás incolor e inodoro produzido pela queima incompleta de combustíveis como gasolina, carvão, lenha e gás natural. A principal fonte atmosférica é o tráfego veicular <cite id="12ood"><a href="#zotero%7C22267313%2FEVH4BL9V">(OMS, 2024b)</a></cite> (Figura 11). </div><br/>
+
+```{figure} ../_static/imagens/6.CO.png
+:width: 90%
+:align: center
+
+Definição, fontes emissoras e impactos do Monóxido de Carbono (CO).
+```
+
+#### Partículas Totais em Suspensão (PTS)
+
+<div style="text-align: justify"> Conjunto de partículas sólidas ou líquidas presentes no ar, com diâmetro de até 50 micrômetros (μm). Incluem poeiras, fumaça e aerossóis que interferem na visibilidade <cite id="fffdx"><a href="#zotero%7C22267313%2F9AAQZBLZ">(BRASIL, 2024b)</a></cite> (Figura 12). </div><br/>
+
+```{figure} ../_static/imagens/8.PTS.png
+:width: 90%
+:align: center
+
+Definição, fontes emissoras e impactos das Partículas Totais em Suspensão (PTS).
+```
+
+#### Chumbo (Pb)
+
+<div style="text-align: justify"> Metal pesado liberado na atmosfera principalmente por processos industriais, fundições e queima de combustíveis <cite id="12ood"><a href="#zotero%7C22267313%2FEVH4BL9V">(OMS, 2024b)</a></cite> (Figura 13). </div><br/>
+
+```{figure} ../_static/imagens/10.Pb.png
+:width: 90%
+:align: center
+
+Definição, fontes emissoras e impactos do Chumbo (Pb).
+```
+
+```{note}
+De acordo com a Resolução Conama nº 506/24 <cite id="fffdx"><a href="#zotero%7C22267313%2F9AAQZBLZ">(BRASIL, 2024b)</a></cite>, a unidade de medida para a concentração dos poluentes atmosféricos é micrograma por metro cúbico (μg/mᶟ), com exceção do Monóxido de Carbono - CO, que é reportado como partes por milhão (ppm).
+```
+
+### Referências 
+
+<!-- BIBLIOGRAPHY START -->
+<div class="csl-bib-body">
+  <div class="csl-entry"><i id="zotero|22267313/9AAQZBLZ"></i>BRASIL. <b>Resolução Conama n<sup>o</sup> 506, de 05 de julho de 2024</b>. , jul. 2024b. </div>
+  <div class="csl-entry"><i id="zotero|22267313/RHYFR842"></i>CETESB. <b>Ficha de Informação Toxicológica: Dióxido de Enxofre</b>. , 2024a. </div>
+  <div class="csl-entry"><i id="zotero|22267313/GP9P8M62"></i>CETESB. <b>Poluentes atmosféricos</b>. , 2024b. </div>
+  <div class="csl-entry"><i id="zotero|22267313/BN9W7W3X"></i>EPA. <b>Managing Air Quality - Ambient Air Monitoring</b>. , 2025. </div>
+  <div class="csl-entry"><i id="zotero|22267313/EVH4BL9V"></i>OMS. <b>Air quality, energy and health</b>. , 2024b. </div>
 </div>
-
-<div id="plotDiv" style="width:100%;height:600px;"></div>
-
-<script>
-const CSV_URL = "../_static/Monitoramento_QAr_BR_teste.csv";  // caminho relativo no Jupyter Book
-let rawData = [];
-let stationPollutants = {};
-
-// Carregar CSV com PapaParse
-Papa.parse(CSV_URL, {
-  download: true,
-  header: true,
-  skipEmptyLines: true,
-  complete: function(results) {
-    rawData = results.data.filter(r => r.ID_MMA && r.POLUENTE); // remover linhas vazias
-    console.log('CSV loaded', rawData.length, 'rows');
-    buildStationPollutantMap();
-    populateStationSelect();
-    setDefaultDates();
-  },
-  error: function(err) {
-    console.error('CSV load error:', err);
-  }
-});
-
-// Construir mapa estação -> poluentes
-function buildStationPollutantMap() {
-  stationPollutants = {};
-  rawData.forEach(row => {
-    if (!stationPollutants[row.ID_MMA]) {
-      stationPollutants[row.ID_MMA] = new Set();
-    }
-    if(row.POLUENTE) {
-      stationPollutants[row.ID_MMA].add(row.POLUENTE);
-    }
-  });
-  for (const station in stationPollutants) {
-    stationPollutants[station] = Array.from(stationPollutants[station]);
-  }
-}
-
-// Popular dropdown de estações
-function populateStationSelect() {
-  const stationSelect = document.getElementById("stationSelect");
-  stationSelect.innerHTML = "";
-  Object.keys(stationPollutants).sort().forEach(station => {
-    const opt = document.createElement("option");
-    opt.value = station;
-    opt.textContent = station;
-    stationSelect.appendChild(opt);
-  });
-  stationSelect.addEventListener("change", populatePollutantSelect);
-  populatePollutantSelect();  // inicial
-}
-
-// Popular dropdown de poluentes com base na estação
-function populatePollutantSelect() {
-  const station = document.getElementById("stationSelect").value;
-  const pollutantSelect = document.getElementById("pollutantSelect");
-  pollutantSelect.innerHTML = "";
-  (stationPollutants[station] || []).forEach(pol => {
-    const opt = document.createElement("option");
-    opt.value = pol;
-    opt.textContent = pol;
-    pollutantSelect.appendChild(opt);
-  });
-}
-
-// Definir valores default para os campos de data baseado no CSV carregado
-function setDefaultDates() {
-  let dates = rawData.map(r => {
-    return new Date(r.ANO, r.MES - 1, r.DIA, r.HORA);
-  }).filter(d => !isNaN(d));
-  if(dates.length === 0) return;
-
-  const minDate = new Date(Math.min(...dates));
-  const maxDate = new Date(Math.max(...dates));
-
-  // Ajustar formato para datetime-local: "YYYY-MM-DDTHH:mm"
-  document.getElementById("startDate").value = minDate.toISOString().slice(0,16);
-  document.getElementById("endDate").value = maxDate.toISOString().slice(0,16);
-}
-
-// Quebra os dados em segmentos sem NaN para o gráfico
-function splitNaNSegments(x, y) {
-  let segments = [];
-  let currentX = [], currentY = [];
-  for (let i = 0; i < y.length; i++) {
-    if (y[i] == null || isNaN(y[i])) {
-      if (currentX.length > 0) {
-        segments.push({x: currentX, y: currentY});
-        currentX = [];
-        currentY = [];
-      }
-    } else {
-      currentX.push(x[i]);
-      currentY.push(y[i]);
-    }
-  }
-  if (currentX.length > 0) {
-    segments.push({x: currentX, y: currentY});
-  }
-  return segments;
-}
-
-// Atualizar gráfico ao clicar no botão
-document.getElementById("updateBtn").addEventListener("click", function() {
-  const station = document.getElementById("stationSelect").value;
-  const pollutant = document.getElementById("pollutantSelect").value;
-  const startDateVal = document.getElementById("startDate").value;
-  const endDateVal = document.getElementById("endDate").value;
-
-  const startDate = startDateVal ? new Date(startDateVal) : null;
-  const endDate = endDateVal ? new Date(endDateVal) : null;
-
-  // Filtrar e limpar dados
-  const filtered = rawData.filter(row =>
-    row.ID_MMA === station &&
-    row.POLUENTE === pollutant
-  ).map(row => {
-    let dt = new Date(row.ANO, row.MES - 1, row.DIA, row.HORA);
-    let val = parseFloat(String(row.VALOR).replace(",", "."));
-    if (val < 0) val = null;
-    return {datetime: dt, valor: val};
-  }).filter(row =>
-    (!startDate || row.datetime >= startDate) &&
-    (!endDate || row.datetime <= endDate)
-  );
-
-  // Ordenar por data
-  filtered.sort((a, b) => a.datetime - b.datetime);
-
-  const x = filtered.map(r => r.datetime);
-  const y = filtered.map(r => r.valor);
-
-  // Criar segmentos sem NaN para plotagem
-  const segments = splitNaNSegments(x, y);
-
-  // Criar traces para o Plotly
-  let traces = segments.map(seg => ({
-    x: seg.x,
-    y: seg.y,
-    mode: "lines",
-    line: {color: "black", width: 1},
-    showlegend: false
-  }));
-
-  // Plotar gráfico
-  Plotly.newPlot("plotDiv", traces, {
-    title: `Série temporal - ${station} - ${pollutant}`,
-    hovermode: "x unified",
-    plot_bgcolor: "rgba(0.8,0.8,0.8,0.2)",
-    yaxis: {title: "Concentração (µg/m³)"},
-    xaxis: {title: "Data/Hora"}
-  });
-});
-</script>
+<!-- BIBLIOGRAPHY END -->

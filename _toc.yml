@@ -69,6 +69,12 @@ parts:
     
     # 7	Considerações finais - arquivo Markdown
     - file: chpt07/chpt07
+
+    # 8	Lista de siglas - arquivo Markdown
+    - file: chpt08/chpt08
+
+    # 9	Citação - arquivo Markdown
+    - file: chpt09/chpt09
     
     # Referências - arquivo Markdown
     #- file: references

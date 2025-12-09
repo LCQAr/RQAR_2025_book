@@ -76,6 +76,25 @@ def ensure_buffers_from_rep(rep_csv=REP_CSV, out_buffer_path=BUFFER_PATH):
     print("📍 Gerando buffers a partir de REP_ESPACIAL...")
 
     rep = pd.read_csv(rep_csv)
+
+    # ======================================================
+    # 🔥 NORMALIZAÇÃO DE POLUENTES — AQUI!
+    # ======================================================
+    pollutant_map = {
+        "PM10": "MP10",
+        "PM25": "MP25",
+        "PM2.5": "MP25",
+        "PM2_5": "MP25",
+        "PM1": None,
+        "VOC": None,
+        "VolatileOrganicCompounds": None,
+    }
+
+    if "POLUENTE" in rep.columns:
+        rep["POLUENTE"] = rep["POLUENTE"].astype(str).str.strip().replace(pollutant_map)
+        rep = rep[rep["POLUENTE"].notna()].copy()
+    # ======================================================
+
     needed = {"LATITUDE", "LONGITUDE", "REP_ESPACIAL", "ID_OEMA"}
     missing = needed - set(rep.columns)
     if missing:
@@ -139,8 +158,10 @@ def popUnderStationREP(
         consolidar_setores()
 
     setores = gpd.read_file(setor_path).to_crs(5880)
+    
     if not Path(buffer_path).exists():
         buffer_path = ensure_buffers_from_rep()
+    
     buffers = gpd.read_file(buffer_path).to_crs(5880)
 
     if method.upper() == "A":
@@ -187,6 +208,7 @@ def popUnderStationREP(
 
     else:
         raise ValueError("method deve ser 'A' (por buffer) ou 'C' (total)")
+
 
 
 # ========================

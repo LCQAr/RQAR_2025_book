@@ -26,6 +26,9 @@ execute:
     - scripts/createUfStations.ipynb
     - scripts/rep_espacial/**/*.ipynb
     - scripts/rep_espacial/*.ipynb
+    - scripts/getPurpleAirData.ipynb
+    - notebooks/*.ipynb
+    
 # LaTeX PDF output filename
 latex:
   latex_documents:

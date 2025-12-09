@@ -153,126 +153,31 @@ def explore_with_bounds(
     
     return base_map
     
-def spatial_rede_monitoramento(columnRef, columnsToltip, cmap):
-    """
-    Generate an interactive map of air quality monitoring stations in Brazil.
-    """
 
-    # Caminho para a pasta de dados
-    rootPath = os.path.dirname(os.getcwd())
-    
-    # Lendo o csv
-    aqmData = pd.read_csv(rootPath+'/data/Monitoramento_QAr_BR.csv')
-    aqmData = aqmData[aqmData['LATITUDE'].notna()]
-    aqmData = aqmData[aqmData['LONGITUDE'].notna()]
-    aqmData = aqmData[aqmData['POLUENTE'].notna()]
-
-    remaining_columns = aqmData.columns[(aqmData.columns != 'POLUENTE') & 
-                                        (aqmData.columns != 'ID_MMA_COMPLETO') & 
-                                        (aqmData.columns != 'COD_POLUENTE') & 
-                                        (aqmData.columns != 'CALIBRACAO') & 
-                                        (aqmData.columns != 'ANOS_MONITORADOS') &
-                                        (aqmData.columns != 'INICIO') & 
-                                        (aqmData.columns != 'FIM') & 
-                                        (aqmData.columns != 'BASE_DADOS')].tolist()
-  
-    # Agrupamento
-    aqmDataGrouped = aqmData.groupby(remaining_columns).agg({
-        'POLUENTE': lambda x: ', '.join(x),
-    }).reset_index()
-
-    aqmDataGrouped['N° Poluentes Medidos'] = aqmDataGrouped['POLUENTE'].apply(lambda x: len(x.split(',')))
-    aqmDataGrouped['LONGITUDE'] = pd.to_numeric(aqmDataGrouped['LONGITUDE'], errors='coerce')
-    aqmDataGrouped['LATITUDE']  = pd.to_numeric(aqmDataGrouped['LATITUDE'], errors='coerce')
-    aqmDataGrouped = aqmDataGrouped.dropna(subset=['LONGITUDE', 'LATITUDE'])
-
-    gdf = gpd.GeoDataFrame(
-        aqmDataGrouped, geometry=gpd.points_from_xy(aqmDataGrouped.LONGITUDE, aqmDataGrouped.LATITUDE), crs="EPSG:4326"
-    )
-
-    gdf = columns_renamer(gdf)
-    if 'Status' in gdf.columns:
-        gdf['Status'] = gdf['Status'].str.replace('Nao declarado', 'Não declarado')
-    if 'Categoria' in gdf.columns:
-        gdf['Categoria'] = gdf['Categoria'].str.replace('Nao declarado', 'Não declarado')
-        gdf['Categoria'] = gdf['Categoria'].str.replace('Referencia', 'Referência')
-
-    if ('Categoria' in gdf.columns) and (gdf.Categoria.unique().shape[0]==3) and (columnRef=='Categoria'):
-        gdf.loc[gdf.Categoria=='Nao declarado', 'Categoria'] = 'Não declarado'
-        cmap = ListedColormap(["orange",'gray', "green"])
-        cmap = ListedColormap(cmap.colors)
-        
-    center_geom = gdf.unary_union.centroid
-    center = [center_geom.y, center_geom.x]
-
-    base_map = explore_with_bounds(
-        gdf,
-        column=None,
-        cmap=cmap,
-        legend=True,
-        zoom_start=4,
-        min_zoom=3,
-        center=None)
-
-    # === Mapa interativo ===
-    m = gdf.explore(
-        column=columnRef,
-        tooltip=columnsToltip,
-        marker_kwds={"radius": 5},
-        m=base_map,
-        cmap=cmap,
-        legend=True,
-    )
-
-    # === MiniMap na direita ===
-    MiniMap(position="bottomleft", zoom_level_offset=-5).add_to(m)
-
-    # === Mover legenda para a esquerda (sem alterar estilo da original) ===
-    move_legend_script = Template("""
-    {% macro script(this, kwargs) %}
-    function __moveLegendLeft(){
-        var legends = document.querySelectorAll('.legend, .colorbar');
-        if(legends.length === 0){ setTimeout(__moveLegendright, 500); return; }
-        var legend = legends[0];
-        var container = legend.closest('.leaflet-control') || legend;
-        var bottomRight = document.querySelector('.leaflet-bottom.leaflet-right');
-        if(bottomLeft && container){
-            bottomLeft.appendChild(container);
-            container.style.left = 'auto';
-            container.style.right = '20px';
-            container.style.bottom = '20px';
-        }
-    }
-    setTimeout(__moveLegendLeft, 700);
-    {% endmacro %}
-    """)
-    macro = MacroElement()
-    macro._template = move_legend_script
-    m.get_root().add_child(macro)
-
-    return m
 
 
 def spatial_rede_monitoramento_new(columnRef, columnsToltip, cmap):
     import geopandas as gpd
     import pandas as pd
-    import os
     from folium.plugins import MiniMap
     from matplotlib.colors import ListedColormap
+    from branca.element import MacroElement, Template
+    from pathlib import Path
 
-    rootPath = Path(__file__).resolve().parents[1]  # sobe até a raiz do projeto
+    # -------------------------------------------------------------------------
+    # Leitura
+    # -------------------------------------------------------------------------
+    rootPath = Path(__file__).resolve().parents[1]
     aqm_path = rootPath / "data" / "Monitoramento_QAr_BR.csv"
     aqmData = pd.read_csv(aqm_path)
-
 
     # -------------------------------------------------------------------------
     # Pré-processamento
     # -------------------------------------------------------------------------
     aqmData = aqmData.dropna(subset=["LATITUDE", "LONGITUDE"])
-    aqmData["LATITUDE"] = pd.to_numeric(aqmData["LATITUDE"], errors="coerce")
+    aqmData["LATITUDE"]  = pd.to_numeric(aqmData["LATITUDE"],  errors="coerce")
     aqmData["LONGITUDE"] = pd.to_numeric(aqmData["LONGITUDE"], errors="coerce")
 
-    # Normalização textual
     aqmData["STATUS"] = aqmData["STATUS"].fillna("Não declarado").replace({
         "Nao declarado": "Não declarado"
     })
@@ -282,34 +187,38 @@ def spatial_rede_monitoramento_new(columnRef, columnsToltip, cmap):
     })
 
     # -------------------------------------------------------------------------
-    # Agrupamento (preserva STATUS e CATEGORIA)
+    # Agrupamento por estação (mantendo campos úteis ao popup)
     # -------------------------------------------------------------------------
-    drop_cols = {
-        "ID_MMA_COMPLETO", "COD_POLUENTE", "CALIBRACAO",
-        "ANOS_MONITORADOS", "INICIO", "FIM", "BASE_DADOS"
-    }
-
-    # Garante que STATUS e CATEGORIA fiquem sempre no agrupamento
-    keep_cols = ["STATUS", "CATEGORIA"]
-    remaining_columns = [
-        c for c in aqmData.columns if c not in drop_cols and c != "POLUENTE"
+    cols_essenciais = [
+        "UF","ID_OEMA","NOME","LATITUDE","LONGITUDE",
+        "STATUS","CATEGORIA","FUNCIONAMENTO","FINALIDADE",
+        "CALIBRACAO","METODO","MARCA","MODELO"
     ]
-    for c in keep_cols:
-        if c not in remaining_columns and c in aqmData.columns:
-            remaining_columns.append(c)
+    group_cols = [c for c in cols_essenciais if c in aqmData.columns]
+
+    def _join_unique(x):
+        vals = sorted({str(v).strip() for v in x.dropna() if str(v).strip()})
+        return ", ".join(vals)
 
     aqmDataGrouped = (
-        aqmData.groupby(remaining_columns, dropna=False)
-        .agg(POLUENTE=("POLUENTE", lambda x: ", ".join(sorted(set(x.dropna())))))
-        .reset_index()
+        aqmData.groupby(group_cols, dropna=False)
+               .agg(POLUENTE=("POLUENTE", _join_unique))
+               .reset_index()
     )
 
+    # contagem e formatação amigável dos poluentes
     aqmDataGrouped["N° Poluentes Medidos"] = aqmDataGrouped["POLUENTE"].apply(
-        lambda s: 0 if pd.isna(s) or s == "" else len(str(s).split(","))
+        lambda s: len([p for p in str(s).split(",") if p.strip()])
     )
+    # versão HTML: um por linha
+    # versão HTML: separados por vírgula (mantém aparência inline)
+    aqmDataGrouped["POLUENTE_HTML"] = aqmDataGrouped["POLUENTE"].apply(
+        lambda s: ", ".join([p.strip() for p in str(s).split(",") if p.strip()])
+    )
+
 
     # -------------------------------------------------------------------------
-    # Criação do GeoDataFrame
+    # GeoDataFrame
     # -------------------------------------------------------------------------
     gdf = gpd.GeoDataFrame(
         aqmDataGrouped,
@@ -318,32 +227,73 @@ def spatial_rede_monitoramento_new(columnRef, columnsToltip, cmap):
     )
 
     # -------------------------------------------------------------------------
-    # Configuração de cores e categorias
+    # Cores e coluna de referência (case-insensitive)
     # -------------------------------------------------------------------------
-    if columnRef.upper() == "STATUS":
+    if columnRef.lower() == "status":
         cmap = ListedColormap(["green", "red", "gray"])
         gdf["STATUS"] = pd.Categorical(
-            gdf["STATUS"],
-            categories=["Ativa", "Inativa", "Não declarado"],
-            ordered=False
+            gdf["STATUS"], categories=["Ativa","Inativa","Não declarado"], ordered=False
         )
 
+    col_match = next((c for c in gdf.columns if c.lower() == columnRef.lower()), None)
+    if col_match is None:
+        raise KeyError(f"Coluna '{columnRef}' não encontrada no DataFrame.")
+
     # -------------------------------------------------------------------------
-    # Geração do mapa
+    # Tooltips curtos e Popup completo
+    # -------------------------------------------------------------------------
+    # tooltip: leve e sem quebrar layout
+    tooltip_short = [c for c in ["ID_OEMA", columnRef] if c in gdf.columns]
+
+    # popup: campos completos + poluentes formatados
+    popup_fields = [c for c in [
+        "ID_OEMA","STATUS","CATEGORIA","FUNCIONAMENTO","FINALIDADE",
+        "CALIBRACAO","METODO","MARCA","MODELO","POLUENTE_HTML","N° Poluentes Medidos"
+    ] if c in gdf.columns]
+    popup_aliases = [
+        "ID_OEMA","Status","Categoria","Funcionamento","Finalidade",
+        "Calibração","Método","Marca","Modelo","Poluentes","Nº Poluentes Medidos"
+    ][:len(popup_fields)]
+
+    # -------------------------------------------------------------------------
+    # Mapa
     # -------------------------------------------------------------------------
     m = gdf.explore(
-        column=columnRef.upper(),
-        tooltip=[c for c in columnsToltip if c in gdf.columns],
+        column=col_match,
+        tooltip=tooltip_short,
+        tooltip_kwds={"sticky": True, "direction": "right"},
+        popup=popup_fields,                         # usa Popup (clique) para info longa
+        popup_kwds={"aliases": popup_aliases, "parse_html": True, "max_width": 600},
         marker_kwds={"radius": 6},
         cmap=cmap,
         legend=True,
-        zoom_start=4,
-        min_zoom=3,
-        location=[-15.8, -47.9]
+        legend_kwds=dict(colorbar=True, fmt="{:.0f}", caption=col_match),
+        zoom_start=4, min_zoom=3, location=[-15.8, -47.9]
     )
 
     MiniMap(position="bottomleft", zoom_level_offset=-5).add_to(m)
+
+    # CSS: evita tooltip estreita/vertical
+    style = Template("""
+    {% macro header(this, kwargs) %}
+    <style>
+      .leaflet-tooltip {
+        min-width: 240px !important;
+        max-width: 360px !important;
+        white-space: normal !important;
+        word-break: break-word !important;
+        font-size: 12px !important;
+        line-height: 1.25em !important;
+      }
+    </style>
+    {% endmacro %}
+    """)
+    macro = MacroElement(); macro._template = style
+    m.get_root().add_child(macro)
+
     return m
+
+
 
 
 
@@ -620,7 +570,7 @@ def explore_with_bounds(
     base_map.get_root().html.add_child(Element(js))
     
     return base_map
-    
+  
 def spatial_rede_monitoramento(columnRef, columnsToltip, cmap):
     """
     Generate an interactive map of air quality monitoring stations in Brazil.
@@ -719,6 +669,7 @@ def spatial_rede_monitoramento(columnRef, columnsToltip, cmap):
     m.get_root().add_child(macro)
 
     return m
+
 
 
 

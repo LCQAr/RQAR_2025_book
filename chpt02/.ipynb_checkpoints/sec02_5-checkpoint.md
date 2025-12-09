@@ -1,3 +1,28 @@
 ## 2.5. Governança sobre a qualidade do ar no Brasil
-TALVEZ transformar em um notebool
-* Tabela 4 – A governança da qualidade do ar no Brasil – dados de 2024. Dados coletados no formulário aplicado pelo MMA e páginas dos OEMAs.
+
+<div style="text-align: justify"> A governança da qualidade do ar no Brasil foi fortalecida pela Lei nº 14.850, de 2 de maio de 2024 <cite id="ras7z"><a href="#zotero%7C22267313%2FZ587NF32">(BRASIL, 2024a)</a></cite>, que instituiu a Política Nacional de Qualidade do Ar (PNQA). Essa política define princípios, objetivos e instrumentos para garantir um ar mais limpo e saudável em todo o território nacional, alinhando-se às metas de saúde pública, bem-estar social e combate às mudanças climáticas. A Figura 17 apresenta de forma sintética o fluxograma da estrutura da governança da qualidade do ar no Brasil. </div><br/>
+
+<div style="text-align: justify"> A governança é baseada em uma atuação integrada entre diferentes níveis de governo. A União, por meio do Ministério do Meio Ambiente e Mudança do Clima e do Conselho Nacional do Meio Ambiente (CONAMA), é responsável por estabelecer diretrizes, padrões nacionais de qualidade do ar, limites máximos de emissão e coordenar o Plano Nacional de Gestão da Qualidade do Ar. Também cabe à União manter o Sistema Nacional de Gestão da Qualidade do Ar (MonitorAr), que reúne e divulga dados gerados pelas redes estaduais de monitoramento, além de elaborar o Guia Técnico para o Monitoramento e Avaliação da Qualidade do Ar, documento que orienta as metodologias de medição e comunicação do Índice de Qualidade do Ar (IQAr). </div><br/>
+
+<div style="text-align: justify"> As UFs são responsáveis por operar as redes estaduais de monitoramento, integrar suas informações ao MonitorAr, elaborar os Relatórios Anuais de Avaliação da Qualidade do Ar e desenvolver seus Planos Estaduais de Gestão da Qualidade do Ar. Esses planos devem conter diagnósticos das principais fontes poluidoras, cenários, metas e prazos para alcançar os padrões nacionais. Já os Municípios contribuem com dados locais sobre emissões e circulação de veículos, auxiliando na elaboração dos inventários estaduais. </div><br/>
+
+<div style="text-align: justify"> Entre os principais instrumentos de gestão previstos estão os padrões de qualidade do ar definidos pelo Conama, os limites máximos de emissão, o monitoramento da qualidade do ar, os inventários de emissões, os planos e programas de controle da poluição, além dos incentivos voltados à adoção de tecnologias limpas e ao fortalecimento da gestão ambiental. Os programas nacionais de maior destaque são o PRONAR (Programa Nacional de Controle da Qualidade do Ar), o PROCONVE (Programa nacional de Controle da Poluição do Ar por Veículos Automotores) e o PROMOT (Programa de Controle da Poluição do Ar por Motociclos e Veículos Similares). </div><br/>
+
+<div style="text-align: justify"> Os objetivos centrais da PNQA incluem proteger a saúde da população, reduzir as emissões e concentrações de poluentes, garantir o acesso público a dados de monitoramento, incentivar a pesquisa e inovação tecnológica e alinhar as políticas de qualidade do ar com as ações de mitigação climática. A política também estabelece mecanismos de transparência e controle social, determinando que as informações sobre qualidade do ar sejam divulgadas em linguagem acessível e atualizadas periodicamente <cite id="ras7z"><a href="#zotero%7C22267313%2FZ587NF32">(BRASIL, 2024a)</a></cite>. </div><br/>
+
+<div style="text-align: justify"> A governança da qualidade do ar no Brasil busca equilibrar desenvolvimento econômico e preservação ambiental, promovendo uma gestão integrada, técnica e participativa. </div><br/>
+
+```{figure} ../_static/imagens/gestao_qar.png
+:width: 90%
+:align: center
+
+Estrutura da governança da qualidade do ar no Brasil.
+```
+<br/>
+<br/>
+
+<!-- BIBLIOGRAPHY START -->
+<div class="csl-bib-body">
+  <div class="csl-entry"><i id="zotero|22267313/Z587NF32"></i>BRASIL. <b>Lei n<sup>o</sup> 14.850, de 02 de maio de 2024</b>. , maio 2024. </div>
+</div>
+<!-- BIBLIOGRAPHY END -->

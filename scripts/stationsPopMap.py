@@ -1,149 +1,104 @@
+#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Mapa Folium: População atendida por estação
-- Buffer real = geometria do buffers_var.gpkg
-- Cor = escala de população
-- Join pelo ID (buffers_var.gpkg x populacao_varbuf.csv)
+Gera GEOJSONs separados por poluente:
+- MP25.geojson
+- MP10.geojson
+- CO.geojson
+- NO2.geojson
+- PTS.geojson
+- SO2.geojson
+- O3.geojson
+
+Uso no terminal:
+    python3 gerar_geojson_pop.py
 """
 
 import geopandas as gpd
 import pandas as pd
-import folium
-from folium.plugins import MiniMap, Fullscreen
-from branca.element import MacroElement
-from jinja2 import Template
 from pathlib import Path
 import os
+import sys
 
-# ========================
-# Configurações
-# ========================
-rootPath   = Path(os.path.dirname(os.getcwd()))
+
+# ================================================================
+# 1) Caminhos
+# ================================================================
+rootPath = Path(os.path.dirname(os.getcwd()))
 OUTPUT_DIR = rootPath / "data" / "outputs"
 
 BUFFER_PATH = OUTPUT_DIR / "buffers_var.gpkg"
 POP_PATH    = OUTPUT_DIR / "populacao_varbuf.csv"
 
-STATIC_DIR  = rootPath / "_static"
-REP_STATIC_DIR = STATIC_DIR / "representatividade"
-REP_STATIC_DIR.mkdir(parents=True, exist_ok=True)
+GJSON_DIR   = rootPath / "_static" / "representatividade" / "populacao_geojson"
+GJSON_DIR.mkdir(parents=True, exist_ok=True)
 
-DEFAULT_HTML_NAME = "mapa_pop_estacoes.html"
-
-# ========================
-# Helpers
-# ========================
-def get_color(pop_value):
-    """Define cor conforme faixa populacional"""
-    if pd.isna(pop_value):
-        return "#999999"
-    elif pop_value < 1_000:
-        return "#fee5d9"
-    elif pop_value < 10_000:
-        return "#fcae91"
-    elif pop_value < 100_000:
-        return "#fb6a4a"
-    elif pop_value < 1_000_000:
-        return "#de2d26"
-    else:
-        return "#a50f15"
+# Poluentes desejados
+POL_VALIDOS = ["MP25", "MP10", "CO", "NO2", "PTS", "SO2", "O3"]
 
 
-def add_legend(m):
-    """Adiciona legenda fixa ao mapa"""
-    legend_html = """
-    {% macro html(this, kwargs) %}
-    <div style="
-        position: fixed; 
-        bottom: 50px; left: 50px; width: 220px; height: 180px; 
-        z-index:9999; font-size:14px;
-        background-color: white; padding: 10px; border:2px solid grey;
-        ">
-        <b>População atendida</b><br>
-        <i style="background:#fee5d9;width:18px;height:18px;float:left;margin-right:5px;"></i> < 1 mil<br>
-        <i style="background:#fcae91;width:18px;height:18px;float:left;margin-right:5px;"></i> 1k – 10k<br>
-        <i style="background:#fb6a4a;width:18px;height:18px;float:left;margin-right:5px;"></i> 10k – 100k<br>
-        <i style="background:#de2d26;width:18px;height:18px;float:left;margin-right:5px;"></i> 100k – 1M<br>
-        <i style="background:#a50f15;width:18px;height:18px;float:left;margin-right:5px;"></i> > 1M<br>
-        <i style="background:#999999;width:18px;height:18px;float:left;margin-right:5px;"></i> sem dado
-    </div>
-    {% endmacro %}
-    """
-    macro = MacroElement()
-    macro._template = Template(legend_html)
-    m.get_root().add_child(macro)
-    return m
+# ================================================================
+# 2) Função principal
+# ================================================================
+def build_pop_geojson_by_pollutant():
 
+    print("📥 Lendo buffers:", BUFFER_PATH)
+    try:
+        buf = gpd.read_file(BUFFER_PATH)
+    except Exception as e:
+        print("❌ Erro lendo buffers_var.gpkg:", e)
+        sys.exit(1)
 
-# ========================
-# Função principal
-# ========================
-def build_map_pop(html_name: str = DEFAULT_HTML_NAME, height: int = 800):
-    """Gera o mapa de população atendida por estação"""
-    # --- Carregar arquivos ---
-    buf = gpd.read_file(BUFFER_PATH).to_crs(4326)
-    pop = pd.read_csv(POP_PATH)
+    print("📥 Lendo populacao:", POP_PATH)
+    try:
+        pop = pd.read_csv(POP_PATH)
+    except Exception as e:
+        print("❌ Erro lendo populacao_varbuf.csv:", e)
+        sys.exit(1)
 
-    # Join pelo ID
-    buf["ID"] = buf["ID"].astype(int)
-    pop["ID"] = pop["ID"].astype(int)
-    buf_pop = buf.merge(pop, on="ID", how="left")
+    # Garantir WGS84
+    if buf.crs is None:
+        print("❌ CRS ausente no arquivo buffers_var.gpkg.")
+        sys.exit(1)
 
-    # Centro do mapa
-    minx, miny, maxx, maxy = buf_pop.total_bounds
-    center_lat, center_lon = (miny + maxy) / 2, (minx + maxx) / 2
+    buf = buf.to_crs(4326)
 
-    # Mapa base
-    br_bounds = [[-34.0, -74.0], [6.0, -34.0]]
-    m = folium.Map(location=[center_lat, center_lon],
-                   zoom_start=4,
-                   tiles="cartodbpositron",
-                   control_scale=True)
-    m.fit_bounds(br_bounds)
-    m.options["minZoom"] = 4
-    m.options["maxBounds"] = br_bounds
-    m.options["maxBoundsViscosity"] = 2.0
+    # Filtrar poluentes
+    buf = buf[buf["POLUENTE"].isin(POL_VALIDOS)].copy()
 
-    # Controles
-    Fullscreen(position="topright").add_to(m)
-    MiniMap(toggle_display=True).add_to(m)
+    print("\nPoluentes no dataset:", sorted(buf["POLUENTE"].unique()))
 
-    # --- Plota buffers reais ---
-    for _, row in buf_pop.iterrows():
-        if row.geometry is None:
+    # Padronizar IDs
+    buf["ID"] = buf["ID_OEMA"].astype(str).str.strip()
+    pop["ID"] = pop["ID_OEMA"].astype(str).str.strip()
+
+    df = buf.merge(pop, on="ID", how="left")
+
+    props = ["ID", "UF", "POLUENTE", "POP_BUFFER", "REP_ESPACIAL"]
+
+    print("\n🔧 Gerando arquivos...")
+
+    outputs = {}
+
+    for pol in POL_VALIDOS:
+        gdf_pol = df[df["POLUENTE"] == pol][props + ["geometry"]].copy()
+
+        if gdf_pol.empty:
+            print(f"⚠️ {pol}: sem registros — não criado.")
             continue
 
-        pop_val = row.get("POP_BUFFER", None)
-        color = get_color(pop_val)
+        out_file = GJSON_DIR / f"{pol}.geojson"
+        gdf_pol.to_file(out_file, driver="GeoJSON")
 
-        popup_html = f"""
-        <div style="font-family:Arial; font-size:13px; line-height:1.4;">
-            <b>Estação:</b> {row.get('ID_OEMA','—')}<br>
-            <b>UF:</b> {row.get('UF','—')}<br>
-            <b>Poluente:</b> {row.get('POLUENTE','—')}<br>
-            <b>População atendida:</b> {int(pop_val) if pd.notna(pop_val) else '—'} habitantes<br>
-            <b>Raio representativo:</b> {float(row.get('REP_ESPACIAL',0)):.0f} m
-        </div>
-        """
-        popup = folium.Popup(popup_html, max_width=300)
+        outputs[pol] = out_file
+        print(f"✔ Criado: {out_file}")
 
-        # Polígono real do buffer
-        folium.GeoJson(
-            data=row.geometry.__geo_interface__,
-            style_function=lambda feature, color=color: {
-                "fillColor": color,
-                "color": color,
-                "weight": 0.7,
-                "fillOpacity": 0.55,
-            },
-            tooltip=f"{row.get('ID_OEMA','—')} ({row.get('UF','')})",
-            popup=popup
-        ).add_to(m)
+    print("\n🏁 Concluído!")
+    return outputs
 
-    # Legenda
-    add_legend(m)
 
-    # Salvar HTML
-    html_path = REP_STATIC_DIR / html_name
-    m.save(str(html_path))
-    return m, str(html_path)
+# ================================================================
+# 3) Execução direta pelo terminal
+# ================================================================
+if __name__ == "__main__":
+    build_pop_geojson_by_pollutant()

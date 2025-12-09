@@ -1,0 +1,471 @@
+# 4.3. Análise da sazonalidade da qualidade do ar no Brasil
+   
+<div style="text-align: justify"> Esta seção do relatório apresenta a avaliação da sazonalidade para os poluentes CO, NO₂, SO₂, MP₂,₅, MP₁₀ e O₃, considerando apenas anos completos (12 meses válidos) por estação. Os anos com meses faltantes são classificados como inválidos e a lista de anos inválidos é registrada para cada estação para transparência. </div><br/>
+
+<div style="text-align: justify"> As métricas foram calculadas a partir das séries mensais agregadas somente sobre os anos completos e incluem: (a) teste de significância de Kruskal-Wallis <cite id="xue1i"><a href="#zotero%7C22267313%2FMY5JNCM2">(Kruskal; Wallis, 1952)</a></cite> entre meses (α=0,05) para verificar se existe diferença estatisticamente detectável entre as distribuições mensais; (b) amplitude, que mede a diferença absoluta entre a média mensal máxima e mínima; (c) força relativa, que mede a razão entre a variância das médias mensais e a variância total da série (fração da variabilidade explicada pela sazonalidade); (d) Índice de Markham (MSI) <cite id="aglqa"><a href="#zotero%7C22267313%2FGJ89KYEG">(Markham, 1970)</a></cite>, que representa a medida adimensional (0-1) da concentração da sazonalidade em poucos meses; (e) meses de pico e vale (mês com maior e menor média mensal). </div><br/>
+
+<div style="text-align: justify"> No mapa interativo a seguir, cada estação mostra no popup o período analisado, número de anos válidos, anos inválidos, p-valor da análise de Kruskal-Wallis, amplitude, força relativa, MSI e meses de máximo e mínimo. Três camadas estão disponíveis (Força relativa, MSI e Amplitude) para a visualização no mapa interativo, sendo possível localizar espacialmente áreas com sazonalidade mais intensa, mais concentrada ou de maior magnitude absoluta. </div><br/>
+<br/>
+
+```{tip}
+A Figura 35 possibilita a seleção de cada poluente para a visualização das métricas de sazonalidade. Ao clicar no popup de cada ponto de monitoramento, o usuário pode visualizar o nome da estação, o período de análise, o número de anos invalidados e os resultados de cada métrica.
+
+```
+
+<style>
+#map-controls-season {
+  display:flex;
+  flex-wrap:nowrap;
+  gap:12px;
+  align-items:center;
+  margin-bottom:12px;
+  font-family:Arial, sans-serif;
+}
+
+.control {
+  display:flex;
+  align-items:center;
+  gap:8px;
+  height:40px;
+  white-space:nowrap;
+}
+
+.control-label { font-size:14px; font-weight:500; color:#333; }
+
+.select-wrap { position:relative; display:inline-block; width:160px; height:32px; }
+.select-wrap select {
+  appearance:none;
+  display:block;
+  width:100%;
+  height:100%;
+  padding:6px 34px 6px 10px;
+  font-size:14px;
+  border-radius:6px;
+  border:1px solid #999;
+  background:#f9f9f9;
+  cursor:pointer;
+}
+.select-wrap::after{
+  content:"";
+  position:absolute;
+  pointer-events:none;
+  top:50%;
+  transform:translateY(-50%);
+  right:10px;
+  width:12px;
+  height:12px;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 6'><path fill='%23333' d='M0 0l5 6 5-6z'/></svg>");
+  background-repeat:no-repeat;
+  background-size:12px 12px;
+}
+
+.radio-group { display:flex; gap:12px; align-items:center; }
+
+/* botão à direita */
+.control-action {
+  margin-left:auto;
+  display:flex;
+  align-items:center;
+  gap:8px;
+}
+.control-button {
+  height:32px;
+  padding:0 16px;
+  line-height:32px;
+  border-radius:6px;
+  border:1px solid #005a9e;
+  background:#0078d7;
+  color:#fff;
+  cursor:pointer;
+  font-weight:600;
+  text-align:center;
+}
+.control-button:hover{ background:#005a9e; }
+
+/* status simples */
+#status-season { font-size:13px; color:crimson; margin-left:8px; }
+
+/* mapa */
+#leafletSeasonMap{ width:100%; height:640px; border:1px solid #ddd; display:none; margin-top:8px; }
+
+/* legenda customizada (gradiente) */
+.leaflet-control.custom-legend { background:white; padding:8px; border-radius:4px; box-shadow:0 1px 4px rgba(0,0,0,0.2); font-size:13px; }
+.legend-gradient { height:12px; width:200px; border-radius:3px; margin:6px 0; display:block; }
+.legend-labels { display:flex; justify-content:space-between; gap:8px; font-size:12px; }
+</style>
+
+<div id="map-controls-season">
+  <div class="control">
+    <span class="control-label">Poluente:</span>
+    <div class="select-wrap">
+      <select id="sel-poll-season">
+        <option>O3</option>
+        <option>CO</option>
+        <option>NO2</option>
+        <option>MP25</option>
+        <option>MP10</option>
+        <option>SO2</option>
+      </select>
+    </div>
+  </div>
+
+  <div class="control">
+    <span class="control-label">Visualizar:</span>
+    <div class="radio-group" title="Escolha a métrica a ser mostrada no mapa">
+      <label style="display:inline-flex;align-items:center;gap:6px;">
+        <input type="radio" name="seasonMetric" value="relative_strength" checked> Força relativa
+      </label>
+      <label style="display:inline-flex;align-items:center;gap:6px;">
+        <input type="radio" name="seasonMetric" value="msi"> MSI
+      </label>
+      <label style="display:inline-flex;align-items:center;gap:6px;">
+        <input type="radio" name="seasonMetric" value="amplitude"> Amplitude
+      </label>
+    </div>
+  </div>
+
+  <div class="control-action">
+    <button id="btn-load-season" class="control-button">Gerar mapa</button>
+    <span id="status-season"></span>
+  </div>
+</div>
+
+<div id="leafletSeasonMap"></div>
+
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+<script>
+(function(){
+  const basePath = "../_static/preprocessed_seasonality/";
+  const selP = document.getElementById('sel-poll-season');
+  const btn  = document.getElementById('btn-load-season');
+  const status = document.getElementById('status-season');
+  const mapDiv = document.getElementById('leafletSeasonMap');
+
+  const tilesDefs = {
+    "OpenStreetMap": { url: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', attribution:'© OpenStreetMap' },
+    "CartoDB Positron": { url: 'https://cartodb-basemaps-a.global.ssl.fastly.net/light_all/{z}/{x}/{y}.png', attribution:'© OpenStreetMap, © CartoDB' },
+    "Esri WorldImagery": { url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', attribution:'Tiles © Esri' }
+  };
+
+  let map = null;
+  let relLayer = null;
+  let msiLayer = null;
+  let ampLayer = null;
+  let baseLayers = {};
+  let layerControl = null;
+  let legendControl = null;
+
+  function polToSafeKey(pol){
+    return String(pol).toLowerCase().replace(/[^a-z0-9]+/g,'');
+  }
+
+  function fetchJsonMaybe(url){
+    return fetch(url).then(resp => { if(!resp.ok) return null; return resp.json(); }).catch(e=>{ console.error(e); return null; });
+  }
+
+  function ensureMap(){
+    if(map) return;
+    map = L.map('leafletSeasonMap').setView([-15.78, -47.9], 4);
+    Object.keys(tilesDefs).forEach((name, idx) => {
+      const def = tilesDefs[name];
+      baseLayers[name] = L.tileLayer(def.url, { maxZoom: 19, attribution: def.attribution });
+      if(idx===0) baseLayers[name].addTo(map);
+    });
+    layerControl = L.control.layers(baseLayers, {}, { collapsed: false }).addTo(map);
+  }
+
+  const monthMapENtoPT = {
+    "January":"janeiro","February":"fevereiro","March":"março","April":"abril","May":"maio","June":"junho",
+    "July":"julho","August":"agosto","September":"setembro","October":"outubro","November":"novembro","December":"dezembro"
+  };
+
+  function fmt3(val){
+    if(val===null || val===undefined || val === "" || isNaN(Number(val))) return "n/a";
+    return Number(val).toFixed(3);
+  }
+
+  const jetStops = [
+    {t:0.00, c:"#00007F"},
+    {t:0.15, c:"#0000FF"},
+    {t:0.35, c:"#00FFFF"},
+    {t:0.60, c:"#FFFF00"},
+    {t:0.85, c:"#FF7F00"},
+    {t:1.00, c:"#7F0000"}
+  ];
+
+  function hexToRgb(hex){ hex = hex.replace('#',''); if(hex.length===3) hex = hex.split('').map(x=>x+x).join(''); const n = parseInt(hex,16); return [(n>>16)&255, (n>>8)&255, n&255]; }
+  function rgbToHex(r,g,b){ return '#'+[r,g,b].map(v=>{ const s=v.toString(16); return s.length===1 ? '0'+s : s; }).join(''); }
+
+  function interpJet(t){
+    if(t<=0) return jetStops[0].c;
+    if(t>=1) return jetStops[jetStops.length-1].c;
+    for(let i=0;i<jetStops.length-1;i++){
+      const a = jetStops[i], b = jetStops[i+1];
+      if(t >= a.t && t <= b.t){
+        const localT = (t - a.t) / (b.t - a.t || 1);
+        const ra = hexToRgb(a.c), rb = hexToRgb(b.c);
+        const r = Math.round(ra[0] + (rb[0]-ra[0])*localT);
+        const g = Math.round(ra[1] + (rb[1]-ra[1])*localT);
+        const bl= Math.round(ra[2] + (rb[2]-ra[2])*localT);
+        return rgbToHex(r,g,bl);
+      }
+    }
+    return jetStops[jetStops.length-1].c;
+  }
+
+  function colorForMetric(val, minV, maxV){
+    if(val === null || val === undefined || isNaN(Number(val))) return "#666666";
+    const t = (Number(val) - minV) / ((maxV - minV) || 1);
+    return interpJet(Math.max(0, Math.min(1, t)));
+  }
+
+  function buildPopupSeason(props){
+    if(!props) return "";
+    const ID_OEMA = props.ID_OEMA || props.id_oema || "n/a";
+    const station = props.station || props.estacao || "n/a";
+    const startY = ('start_year' in props) ? props.start_year : null;
+    const endY   = ('end_year' in props) ? props.end_year : null;
+    const periodo = (startY !== null && endY !== null) ? `${startY} - ${endY}` : "n/a";
+    const n_valid = ('n_valid_years' in props) ? parseInt(props.n_valid_years || 0) : 0;
+    const invalid_years = ('invalid_years' in props) ? parseInt(props.invalid_years || 0) : 0;
+    const p_value = ('p_value' in props) ? fmt3(props.p_value) : "n/a";
+    const amplitude = ('amplitude' in props) ? fmt3(props.amplitude) : "n/a";
+    const relative_strength = ('relative_strength' in props) ? fmt3(props.relative_strength) : "n/a";
+    const msi = ('msi' in props) ? fmt3(props.msi) : "n/a";
+    let max_month = props.max_month || props.maxMonth || "";
+    let min_month = props.min_month || props.minMonth || "";
+    if(monthMapENtoPT[max_month]) max_month = monthMapENtoPT[max_month];
+    if(monthMapENtoPT[min_month]) min_month = monthMapENtoPT[min_month];
+
+    return `<b>ID Estação:</b> ${station}<br/>
+            <b>Estação:</b> ${ID_OEMA}<br/>
+            <b>Período:</b> ${periodo}<br/>
+            <b>Anos inválidos:</b> ${invalid_years}<br/>
+            <b>Amplitude:</b> ${amplitude}<br/>
+            <b>Força relativa:</b> ${relative_strength}<br/>
+            <b>Índice de Markham (MSI):</b> ${msi}<br/>
+            <b>Mês max:</b> ${max_month}<br/>
+            <b>Mês min:</b> ${min_month}`;
+  }
+
+  function addLegendForMetric(minV, maxV, title){
+    if(legendControl){ try{ legendControl.remove(); } catch(e){} legendControl = null; }
+    legendControl = L.control({ position: 'bottomright' });
+    legendControl.onAdd = function(){
+      const div = L.DomUtil.create('div', 'leaflet-control custom-legend');
+      div.innerHTML = `<strong>${title}</strong>`;
+      const stopsHtml = [];
+      const sampleCount = 7;
+      for(let i=0;i<sampleCount;i++){
+        const t = i/(sampleCount-1);
+        const c = interpJet(t);
+        stopsHtml.push(`<span style="display:inline-block;width:${100/sampleCount}%;height:12px;background:${c};"></span>`);
+      }
+      div.innerHTML += `<div class="legend-gradient" style="display:flex;overflow:hidden;border:1px solid #ddd;border-radius:3px;padding:0;">${stopsHtml.join('')}</div>`;
+
+      let minLabel, maxLabel;
+      if(title.includes("Força relativa")){
+        minLabel = "0";
+        maxLabel = "1";
+      } else if(title.includes("MSI") || title.includes("Amplitude")){
+        minLabel = "0";
+        maxLabel = (isNaN(maxV) ? "n/a" : Number(maxV).toFixed(3));
+      } else {
+        minLabel = (isNaN(minV) ? "n/a" : Number(minV).toFixed(3));
+        maxLabel = (isNaN(maxV) ? "n/a" : Number(maxV).toFixed(3));
+      }
+
+      div.innerHTML += `<div class="legend-labels"><span>${minLabel}</span><span>${maxLabel}</span></div>`;
+
+      div.innerHTML += `<div style="margin-top:6px;display:flex;align-items:center;gap:6px;">
+        <span style="display:inline-block;width:14px;height:14px;background:#cccccc;border:1px solid #222;border-radius:50%;"></span>
+        <span>Período insuficiente</span>
+      </div>`;
+
+      return div;
+    };
+    legendControl.addTo(map);
+  }
+
+  btn.addEventListener('click', async function(){
+    try{
+      status.textContent = '';
+      mapDiv.style.display = 'block';
+      ensureMap();
+
+      if(relLayer){ try{ map.removeLayer(relLayer); } catch(e){} relLayer = null; }
+      if(msiLayer){ try{ map.removeLayer(msiLayer); } catch(e){} msiLayer = null; }
+      if(ampLayer){ try{ map.removeLayer(ampLayer); } catch(e){} ampLayer = null; }
+      if(layerControl){ try{ layerControl.remove(); } catch(e){} layerControl = L.control.layers(baseLayers, {}, { collapsed: false }).addTo(map); }
+
+      const polSel = selP.value;
+      const key = polToSafeKey(polSel);
+      const fname = `${key}_stations.geojson`;
+      const url = basePath + fname;
+
+      status.textContent = 'Carregando GeoJSON...';
+      const gj = await fetchJsonMaybe(url);
+      if(!gj || !gj.features || gj.features.length === 0){
+        status.textContent = `GeoJSON não encontrado ou sem feições: ${fname}`;
+        return;
+      }
+
+      const validFeatures = gj.features.filter(f => {
+        const n_valid = parseInt(f.properties?.n_valid_years || 0);
+        return n_valid > 0;
+      });
+
+      const relVals = validFeatures.map(f => Number(f.properties.relative_strength)).filter(v => !isNaN(v));
+      const msiVals = validFeatures.map(f => Number(f.properties.msi)).filter(v => !isNaN(v));
+      const ampVals = validFeatures.map(f => Number(f.properties.amplitude)).filter(v => !isNaN(v));
+
+      if(relVals.length === 0 && msiVals.length === 0 && ampVals.length === 0){
+        status.textContent = `Nenhum valor válido encontrado em ${fname}`;
+        return;
+      }
+
+      const relMin = 0;
+      const relMax = 1;
+      const msiMin = 0;
+      const msiMax = msiVals.length ? Math.max(...msiVals) : NaN;
+      const ampMin = 0;
+      const ampMax = ampVals.length ? Math.max(...ampVals) : NaN;
+
+      relLayer = L.geoJSON(gj, {
+        pointToLayer: (f, latlng) => {
+          const p = f.properties || {};
+          const n_valid = parseInt(p.n_valid_years || 0);
+          const color = (n_valid === 0) ? "#cccccc" : colorForMetric(Number(p.relative_strength), relMin, relMax);
+          return L.circleMarker(latlng, { radius:7, fillColor: color, color:"#222", weight:0.6, fillOpacity:0.95 });
+        },
+        onEachFeature: (f, layer) => { layer.bindPopup(buildPopupSeason(f.properties)); }
+      });
+
+      msiLayer = L.geoJSON(gj, {
+        pointToLayer: (f, latlng) => {
+          const p = f.properties || {};
+          const n_valid = parseInt(p.n_valid_years || 0);
+          const color = (n_valid === 0) ? "#cccccc" : colorForMetric(Number(p.msi), msiMin, msiMax);
+          return L.circleMarker(latlng, { radius:7, fillColor: color, color:"#222", weight:0.6, fillOpacity:0.95 });
+        },
+        onEachFeature: (f, layer) => { layer.bindPopup(buildPopupSeason(f.properties)); }
+      });
+
+      ampLayer = L.geoJSON(gj, {
+        pointToLayer: (f, latlng) => {
+          const p = f.properties || {};
+          const n_valid = parseInt(p.n_valid_years || 0);
+          const color = (n_valid === 0) ? "#cccccc" : colorForMetric(Number(p.amplitude), ampMin, ampMax);
+          return L.circleMarker(latlng, { radius:7, fillColor: color, color:"#222", weight:0.6, fillOpacity:0.95 });
+        },
+        onEachFeature: (f, layer) => { layer.bindPopup(buildPopupSeason(f.properties)); }
+      });
+
+      const metric = document.querySelector('input[name="seasonMetric"]:checked').value;
+      if(metric === "relative_strength"){
+        relLayer.addTo(map);
+        layerControl.addOverlay(relLayer, "Força relativa (visível)");
+        layerControl.addOverlay(msiLayer, "MSI (oculta)");
+        layerControl.addOverlay(ampLayer, "Amplitude (oculta)");
+        addLegendForMetric(relMin, relMax, "Força relativa");
+      } else if(metric === "msi"){
+        msiLayer.addTo(map);
+        layerControl.addOverlay(msiLayer, "MSI (visível)");
+        layerControl.addOverlay(relLayer, "Força relativa (oculta)");
+        layerControl.addOverlay(ampLayer, "Amplitude (oculta)");
+        addLegendForMetric(msiMin, msiMax, "Índice de Markham (MSI)");
+      } else {
+        ampLayer.addTo(map);
+        layerControl.addOverlay(ampLayer, "Amplitude (visível)");
+        layerControl.addOverlay(relLayer, "Força relativa (oculta)");
+        layerControl.addOverlay(msiLayer, "MSI (oculta)");
+        addLegendForMetric(ampMin, ampMax, "Amplitude");
+      }
+
+      const visibleLayer = (metric==="relative_strength") ? relLayer : ((metric==="msi") ? msiLayer : ampLayer);
+      const fg = L.featureGroup([visibleLayer].filter(Boolean));
+      if(fg.getBounds && fg.getBounds().isValid()){
+        map.fitBounds(fg.getBounds(), { padding:[20,20] });
+      }
+
+      status.textContent = '';
+    } catch(err){
+      console.error(err);
+      status.textContent = 'Erro ao gerar o mapa sazonal (ver console)';
+    }
+  });
+})();
+</script>
+
+<p style="text-align:center; color:#636D7D; font-size:15.5px;">
+  <em>Fig. 35</em> Mapa interativo da sazonalidade de CO, NO₂, SO₂, MP₂,₅, MP₁₀ e O₃ no Brasil.
+</p><br/>
+
+
+<div style="text-align: justify"> Na Figura 35, os pontos em cinza representam as estações com período insuficiente de dados para a análise, considerando-se válidas apenas aquelas com 12 meses de dados representativos em pelo menos um ano completo. Uma síntese dos resultados para cada poluente é apresentada a seguir: </div><br/>
+
+#### Ozônio (O₃)
+
+<div style="text-align: justify"><li> Força relativa: padrões de alta força relativa foram observados principalmente nos estados do PR, SP, RJ e MG, com ocorrências adicionais na BA, PE, CE e AM. </div><br/>
+
+<div style="text-align: justify"><li> MSI: valores geralmente baixos, variando entre 0,1 e 0,2, indicando sazonalidade moderada. O maior valor foi detectado no PR (estação JDA), com MSI máximo de 0,382. </div><br/>
+
+<div style="text-align: justify"><li> Amplitude: entre 10 e 30 µg/m³ na maioria das estações, com amplitudes superiores a 30 µg/m³ no Sudeste, especialmente no RJ (estação Cidade Alegria) e MG (estação Lobo Leite), onde atingiram valores acima de 50 µg/m³. <br/>
+
+#### Monóxido de Carbono (CO)
+
+<div style="text-align: justify"><li> Força relativa: elevada em praticamente todos os estados com monitoramento, com destaque para o RS (estações Esteio - Parque de Exposição e Vila Ezequiel), PR (estações SIX e BOQ), SP (estações Cid. Universitária – USP - Ipen e São José dos Campos), RJ (estações Lab. INEA, Lourenço Jorge, RJ - Centro e São Bernardo), MG (estação Cidade Industrial), ES (estação RGV8 - Vila Capixaba), BA (estações Botelho e Malemba), PE (estações RNEST - CPRH e EDCUPE) e CE (estação CIPP). </div><br/>
+
+<div style="text-align: justify"><li> MSI: predominantemente baixo (geralmente < 0,1), com máximos de 0,207 observados no PR (estação CIC) e RJ (estação Manguinhos). </div><br/>
+
+<div style="text-align: justify"><li> Amplitude: entre 0,1 e 0,5 ppm na maioria das estações, com valores acima de 1 ppm no RJ (estação Manguinhos) e ES (estação Norte 02 - Cacimbas). </div><br/>
+
+#### Dióxido de Nitrogênio (NO₂)
+
+<div style="text-align: justify"><li> Força relativa: elevada em quase todas as estações de SP, com outras ocorrências relevantes no RS (estações Vila Ezequiel, Canoas P. Universitário e Triunfo - Polo Móvel), RJ (estações VR - Nossa Sra. das Graças, Piranema e Lourenço Jorge), MG (estações Cidade Administrativa, Cidade Industrial e Cecília Meireles), ES (estações RGV8 - Vila Capixaba, RGV9 - Cidade Continental, Norte 01 e Norte 02 - Cacimbas), BA (estação Gamboa), PE (estação Escola Ipojuca) e CE (estação CIPP). </div><br/>
+
+<div style="text-align: justify"><li> MSI: relativamente baixo (máximo de 0,190), com alta variabilidade espacial. Os maiores valores concentram-se em SP (estações São José do Rio Preto, Bauru, Catanduva e Campinas - Taquaral). </div><br/>
+
+<div style="text-align: justify"><li> Amplitude: entre 2 e 10 µg/m³ na maior parte das estações, com valores superiores a 10 µg/m³ principalmente em SP, chegando a >30 µg/m³ no RJ (estação Lourenço Jorge) e SP (estação Centro). </div><br/>
+
+#### Dióxido de Enxofre (SO₂)
+
+<div style="text-align: justify"><li> Força relativa: elevada em diversas regiões, com destaque para BA e MG, além de ocorrências pontuais no RS (estação Triunfo - Polo Móvel), PR (estações CSN e JDA), SP (estações Sorocaba, Ibirapuera e Santo André - Capuava), RJ (estações VR - Nossa Sra. das Graças e Taquara), ES (estações RGV9 - Cidade Continental e RGV8 - Vila Capixaba) e AM (estação FEMARH). </div><br/>
+
+<div style="text-align: justify"><li> MSI: geralmente baixo, com valores acima de 0,2 em MG (estações Centro Administrativo Betim, Petrovale, Cidade Nobre e Cariru), SP (estação Sorocaba), ES (estação RGV9 - Cidade Continental), BA (estações Gamboa, Areias II, Malemba e Concórdia) e PE (estação RNEST - Escola Ipojuca). </div><br/>
+
+<div style="text-align: justify"><li> Amplitude: entre 1 e 5 µg/m³ na maioria das estações, com picos superiores a 20 µg/m³ no RS (estação Esteio - Parque de Exposição), RJ (RJ - Centro) e SC (estações Vila Moema e Capivari). A maior amplitude foi registrada no PR (estação CSN) e MA (estação Anjo da Guarda), ultrapassando 30 µg/m³. </div><br/>
+
+#### Material Particulado Fino (MP₂,₅)
+
+<div style="text-align: justify"><li> Força relativa: alta entre SP e MG, com ocorrências adicionais no PR (estação LDA), RJ (estações Adalgisa Nery, Euclidelândia e Manguinhos), ES (estações Carapina e RGV1 - Laranjeiras), BA (estações Machadinho e Leandrinho) e MA (estações Anjo da Guarda, Maranhão e Santa Bárbara).  </div><br/>
+
+<div style="text-align: justify"><li>MSI: entre 0,1 e 0,2 na maioria das estações, com valores acima de 0,2 no PR (estação LDA), SP (estações Carapicuíba e Itaim Paulista), MG (estações Petrovale e Centro) e MA (estação Anjo da Guarda). Os maiores valores foram observados em SC (estação Vila Moema) e MG (estações PUC Barreiro e Centro - Av. do Contorno).  </div><br/>
+
+<div style="text-align: justify"><li> Amplitude: entre 5 e 20 µg/m³ na maior parte dos pontos, com picos acima de 50 µg/m³ em MG (estações Petrovale, PUC Barreiro e Centro - Av. do Contorno). A maior amplitude foi observada em SC (estação Vila Moema), atingindo cerca de 168 µg/m³.  </div><br/>
+
+#### Material Particulado Inalável (MP₁₀)
+
+<div style="text-align: justify"><li> Força relativa: elevada com maior evidência em SP, e ocorrências adicionais no RS, PR, RJ, MG, ES, BA e MA. </div><br/>
+
+<div style="text-align: justify"><li> MSI: entre 0,05 e 0,2 na maioria das estações, com valores acima de 0,2 no PR (estação CIC), SP (estações Ribeirão Preto e Catanduva), MG (estações Célvia, Centro Administrativo Betim e Comunidade do Feijão) e MA (estação Anjo da Guarda). Os maiores valores foram observados no PR (estação LON) e SC (estação Capivari). </div><br/>
+
+<div style="text-align: justify"><li> Amplitude: entre 5 e 20 µg/m³ na maioria das estações, com picos acima de 50 µg/m³ em MG (estações Petrovale, PUC Barreiro e Centro - Av. do Contorno).  </div><br/>
+
+#### Síntese geral</b>
+
+<div style="text-align: justify"><li>  Todos os poluentes apresentaram sazonalidade detectável, embora o MSI tenha se mantido baixo (<0,2) na maioria das estações, indicando padrões sazonais moderados e variáveis regionalmente.</div><br/>
+<div style="text-align: justify"><li>  Maior consistência sazonal foi observada para O₃, MP₂.₅ e MP₁₀, especialmente nas regiões Sudeste e Sul.</div><br/>
+<div style="text-align: justify"><li>  As maiores amplitudes absolutas foram observadas para MP₂.₅ e MP₁₀, principalmente em MG e SC, o que evidencia forte variação anual nas concentrações de material particulado.</div><br/>
+<br/>
+
+### Referências
+
+<!-- BIBLIOGRAPHY START -->
+<div class="csl-bib-body">
+  <div class="csl-entry"><i id="zotero|22267313/MY5JNCM2"></i>KRUSKAL, W. H.; WALLIS, W. A. Use of Ranks in One-Criterion Variance Analysis. <b>Journal of the American Statistical Association</b>, v. 47, n. 260, p. 583–621, 1952. </div>
+  <div class="csl-entry"><i id="zotero|22267313/GJ89KYEG"></i>MARKHAM, C. G. Seasonality of Precipitation in the United States. <b>Annals of the Association of American Geographers</b>, v. 60, n. 3, p. 593–597, 1970. </div>
+</div>
+<!-- BIBLIOGRAPHY END -->

@@ -10,7 +10,7 @@ João Paulo Ribeiro Capobianco
 ## Secretária-executiva Adjunta
 Anna Flávia de Senna Franco
 
-## Secretário Nacional de Meio Ambiente Urbano e Qualidade Ambiental
+## Secretário Nacional de Meio Ambiente Urbano, Recursos Hídricos e Qualidade Ambiental
 Adalberto Felício Maluf Filho
 
 ## Diretoria do Departamento de Qualidade Ambiental

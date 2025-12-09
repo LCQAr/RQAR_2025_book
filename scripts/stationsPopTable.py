@@ -19,8 +19,8 @@ from itables import to_html_datatable
 import webbrowser
 import itables.options
 import itables.options as opt
-opt.dom = "Bfrtip"  # mantém botões, remove SearchPanes
-opt.buttons = ["copy", "csv", "excel"]
+opt.dom = "tip"  # t = tabela, i = info (rodapé), p = paginação
+opt.buttons = []
 opt.searchPanes = False
 
 # SILENCIA O AVISO DE SINTAXE DO ITABLES
@@ -63,13 +63,13 @@ def bandeira_base64(uf: str) -> str:
 def tabela_populacao_flag(modo="resumido", pop_min_corte_detalhado=100, pop_min_corte_resumido=1000):
     """
     Calcula a cobertura populacional das estações por UF e poluente.
-    Pode ser 'resumido' ou 'detalhado'.
+    Pode ser 'resumido' (sem sobreposição total) ou 'detalhado' (sem sobreposição dentro de cada poluente).
     """
 
     buffers_all = gpd.read_file(BUFFER_PATH).to_crs(5880)
     setores = gpd.read_file(SETOR_PATH).to_crs(5880)
 
-    # CORREÇÃO: Calcular e armazenar a área original do setor
+    # Calcula área original dos setores
     setores["AREA_ORIGINAL"] = setores.area 
 
     if "CD_UF" not in setores.columns:
@@ -77,48 +77,49 @@ def tabela_populacao_flag(modo="resumido", pop_min_corte_detalhado=100, pop_min_
     else:
         setores["CD_UF"] = setores["CD_UF"].astype(int)
 
-    # ======================
-    # Modo RESUMIDO (Lógica revisada e filtro aplicado no resultado final)
-    # ======================
+    # =========================================================
+    # 🔹 MODO RESUMIDO — descarta sobreposição total
+    # =========================================================
     if modo == "resumido":
         buffers_max = (
-            buffers_all.sort_values("REP_ESPACIAL")
+            buffers_all.sort_values("REP_ESPACIAL_NUM")
             .groupby("ID_OEMA")
             .tail(1)
         )
+
         inter_est = gpd.sjoin(
             buffers_max, setores[["CD_UF", "geometry"]],
             how="left", predicate="intersects"
         )
         inter_est["UF"] = inter_est["CD_UF"].map(codigo_para_uf)
 
-        # Dissolve (união) para obter a área total não redundante por UF
+        # União por UF — remove sobreposições entre buffers
         buffers_union = inter_est.dissolve(by="UF").reset_index()
         inter = gpd.overlay(setores, buffers_union, how="intersection")
-        
-        # CÁLCULO APL CORRIGIDO
+
+        # Cálculo proporcional
         inter["AREA_PROP"] = inter.area / inter["AREA_ORIGINAL"].replace(0, 1e-9)
         inter["POP_PROP"] = inter["POP2022"] * inter["AREA_PROP"]
-        
-        # FILTRO DE CORTE REMOVIDO DESTE PONTO (para não descartar setores)
 
         if inter.empty:
-            return pd.DataFrame(columns=["Bandeira", "UF", "POP2022", "N_ESTACOES"])
+            return pd.DataFrame(columns=["Bandeira", "Estado", "População atendida", "Número de estações"])
 
-        # Soma total da população atendida por UF
+        # Soma por UF
         resumo = (
             inter.groupby("UF")["POP_PROP"]
             .sum()
-            .round(0) 
+            .round(0)
             .reset_index(name="POP2022")
         )
-        
-        # FILTRO RESUMIDO CORRIGIDO: Aplicado APÓS a soma total por UF
+
+        # Corte mínimo após soma
         resumo = resumo[resumo["POP2022"] >= pop_min_corte_resumido].copy()
 
+        # Contagem de estações
         estacoes = inter_est.groupby("UF")["ID_OEMA"].nunique().reset_index(name="N_ESTACOES")
         resumo = resumo.merge(estacoes, on="UF", how="left")
 
+        # Linha total Brasil
         resumo_total = pd.DataFrame([{
             "UF": "BR",
             "POP2022": resumo["POP2022"].sum().round(0),
@@ -126,32 +127,38 @@ def tabela_populacao_flag(modo="resumido", pop_min_corte_detalhado=100, pop_min_
         }])
         resumo = pd.concat([resumo, resumo_total], ignore_index=True)
 
-    # ======================
-    # Modo DETALHADO (Mantém o filtro para ruído de buffer individual)
-    # ======================
+    # =========================================================
+    # 🔹 MODO DETALHADO — descarta sobreposição por POLUENTE
+    # =========================================================
     else:
         buffers = buffers_all.copy()
-        inter = gpd.overlay(setores, buffers, how="intersection")
-        
-        # CÁLCULO APL CORRIGIDO
+
+        # União dos buffers por poluente
+        buffers_union = buffers.dissolve(by="POLUENTE").reset_index()
+
+        # Overlay com setores
+        inter = gpd.overlay(setores, buffers_union, how="intersection")
+
+        # Cálculo proporcional
         inter["AREA_PROP"] = inter.area / inter["AREA_ORIGINAL"].replace(0, 1e-9)
         inter["POP_PROP"] = inter["POP2022"] * inter["AREA_PROP"]
 
-        # FILTRO DETALHADO: Remove intersecções populacionais < 100
+        # Corte mínimo
         inter_filtrada = inter[inter["POP_PROP"] >= pop_min_corte_detalhado].copy()
-        
-        if inter_filtrada.empty:
-             return pd.DataFrame(columns=["Bandeira", "UF", "POLUENTE", "POP2022", "N_ESTACOES"])
 
+        if inter_filtrada.empty:
+            return pd.DataFrame(columns=["Bandeira", "Estado", "Poluente", "População atendida", "Número de estações"])
+
+        # Soma por UF e poluente
         resumo = (
             inter_filtrada.groupby(["CD_UF", "POLUENTE"])["POP_PROP"]
             .sum()
-            .round(0) 
+            .round(0)
             .reset_index(name="POP2022")
         )
         resumo["UF"] = resumo["CD_UF"].map(codigo_para_uf)
 
-        # Contagem de Estações (sem o filtro POP)
+        # Contagem de estações
         inter_est = gpd.sjoin(
             buffers_all, setores[["CD_UF", "geometry"]],
             how="left", predicate="intersects"
@@ -162,27 +169,41 @@ def tabela_populacao_flag(modo="resumido", pop_min_corte_detalhado=100, pop_min_
         resumo = resumo.merge(estacoes, on="UF", how="left")
         resumo["POP2022"] = resumo["POP2022"].astype(int)
 
-    # Pós-processamento comum
+    # =========================================================
+    # 🔸 PÓS-PROCESSAMENTO COMUM
+    # =========================================================
     resumo["Bandeira"] = resumo["UF"].apply(bandeira_base64)
     resumo = resumo.fillna(0)
     resumo["N_ESTACOES"] = resumo["N_ESTACOES"].astype(int)
-    resumo["POP2022"] = resumo["POP2022"].astype(int) 
+    resumo["POP2022"] = resumo["POP2022"].astype(int)
 
-    # RENOMEAR COLUNAS PARA PORTUGUÊS
     col_mapping = {
         "UF": "Estado",
         "POP2022": "População atendida",
         "N_ESTACOES": "Número de estações",
+        "POLUENTE": "Poluente",
     }
+
     resumo.rename(columns=col_mapping, inplace=True)
-    
-    # Organização das colunas
-    if "POLUENTE" in resumo.columns:
-        resumo = resumo[["Bandeira", "Estado", "POLUENTE", "População atendida", "Número de estações"]]
+
+    # Reorganização de colunas
+    if "Poluente" in resumo.columns:
+        resumo = resumo[["Bandeira", "Estado", "Poluente", "População atendida", "Número de estações"]]
     else:
         resumo = resumo[["Bandeira", "Estado", "População atendida", "Número de estações"]]
 
+    # =========================================================
+    # 🔹 EXIBIR SOMENTE OS POLUENTES DESEJADOS
+    #    (sem afetar cálculos anteriores)
+    # =========================================================
+    POL_VALIDOS = ['MP25', 'MP10', 'CO', 'NO2', 'PTS', 'SO2', 'O3']
+
+    if "Poluente" in resumo.columns:
+        resumo = resumo[resumo["Poluente"].isin(POL_VALIDOS)].copy()
+
     return resumo
+
+
 
 
 # ========================
@@ -191,80 +212,71 @@ def tabela_populacao_flag(modo="resumido", pop_min_corte_detalhado=100, pop_min_
 from IPython.display import HTML, display
 import re
 
-def tabela_populacao_interactive(modo="resumido", save_html=True, open_in_notebook=True, use_cache=True):
-    """
-    Gera ou carrega a tabela populacional (resumido ou detalhado),
-    e exibe com largura total no notebook.
-    """
+def tabela_populacao_interactive(
+    modo="resumido",
+    save_html=True,
+    open_in_notebook=True,
+    use_cache=True
+):
+
     cache_csv = STATIC_DIR / f"tabela_populacao_{modo}.csv"
     html_path = STATIC_DIR / f"tabela_populacao_{modo}.html"
     html_path_leve = STATIC_DIR / f"tabela_populacao_{modo}_leve.html"
 
+    # Cache
     if use_cache and cache_csv.exists():
         df = pd.read_csv(cache_csv)
     else:
-        # Chama a função corrigida
         df = tabela_populacao_flag(modo=modo)
         df.to_csv(cache_csv, index=False)
 
-    searchPaneColumns = [1, 2] if "POLUENTE" in df.columns else [1]
+    # 🔹 Ajuste do searchPane
+    searchPaneColumns = [1, 2] if "Poluente" in df.columns else [1]
 
     html_code = to_html_datatable(
         df,
         classes="display compact stripe",
-        buttons=["copyHtml5", "csvHtml5", "excelHtml5"],
-        layout={"top2": "searchPanes"},
-        searchPanes={"layout": "columns-3", "cascadePanes": True, "columns": searchPaneColumns},
+        dom="tip",
+        buttons=[],
         allow_html=True,
         escape=False,
         index=False,
     )
 
-    # CSS Estilizado para 100% de largura e FONTE AUMENTADA (16pt)
+    # CSS
     css_fullwidth = """
     <style>
-    /* Ajustes para o itables (DataTables) */
-    .itables, .jp-RenderedHTMLCommon table, table.dataTable {
+    .itables, table.dataTable {
         width: 100% !important;
-        max-width: 100% !important;
-        margin: 0 auto !important;
-        font-size: 14pt !important; /* FONTE AUMENTADA */
+        font-size: 14pt !important;
     }
-    .dataTables_wrapper {
-        width: 100% !important;
-        max-width: 100% !important;
-        overflow-x: auto !important;
+    table.dataTable thead th {
+        text-align: left !important;
     }
-    body, html {
-        width: 100% !important;
-        overflow-x: hidden !important;
-    }
-    /* Reduz o padding na coluna da bandeira (primeira coluna) */
-    table.dataTable thead th:first-child,
-    table.dataTable tbody td:first-child {
-        width: 3% !important; 
-        padding-left: 5px !important;
-        padding-right: 5px !important;
-        text-align: center;
-    }
-    /* Ajuste para o tamanho da fonte nos títulos/filtros do DataTables */
-    .dataTables_wrapper label, .dataTables_wrapper .dataTables_info, 
-    .dataTables_wrapper .dataTables_length, .dataTables_wrapper .dt-buttons {
-        font-size: 11pt !important; /* Mantém os controles menores */
+    table.dataTable thead th.sorting,
+    table.dataTable thead th.sorting_asc,
+    table.dataTable thead th.sorting_desc {
+        background-position: right center !important;
+        padding-right: 25px !important;
     }
     </style>
     """
+
     html_code = css_fullwidth + html_code
 
     if save_html:
         html_path.write_text(html_code, encoding="utf-8")
-        html_leve = re.sub(r"<script[\s\S]*?</script>", "", html_code)
-        html_path_leve.write_text(html_leve, encoding="utf-8")
+        html_path_leve.write_text(
+            re.sub(r"<script[\s\S]*?</script>", "", html_code),
+            encoding="utf-8"
+        )
 
     if open_in_notebook:
         display(HTML(html_code))
 
     return df, html_path
+
+
 
 
 # ========================

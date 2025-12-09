@@ -213,9 +213,17 @@ for pol in df_rep_temporal.index:
                 prcnt_dia = 100 * df_dia['VALOR'].notna().sum() / len(df_dia)
                 prcnt_mes = 100 * df_mes['VALOR'].notna().sum() / len(df_mes)
                 prcnt_ano = 100 * df_ano['VALOR'].notna().sum() / len(df_ano)
+                anos = df_ano['ANO'].astype(int).astype(str).str.cat(sep=',')
+                df_anos_rep = df_ano.dropna(subset=['VALOR'])
+                anos_representativos = df_anos_rep['ANO'].astype(int).astype(str).str.cat(sep=',')
 
-                prcnt_estacao = {'ID_MMA_COMPLETO': estacao[:-4], 'PRCNT_REP_TEMPORAL_DIARIA': prcnt_dia, 'PRCNT_REP_TEMPORAL_MENSAL': prcnt_mes, 'PRCNT_REP_TEMPORAL_ANUAL': prcnt_ano}
-
+                prcnt_estacao = {'ID_MMA_COMPLETO': estacao[:-4], 
+                                 'PRCNT_REP_TEMPORAL_DIARIA': prcnt_dia, 
+                                 'PRCNT_REP_TEMPORAL_MENSAL': prcnt_mes, 
+                                 'PRCNT_REP_TEMPORAL_ANUAL': prcnt_ano, 
+                                 'ANOS_REPRESENTATIVOS':anos_representativos,
+                                 'ANOS_MONITORADOS': anos}
+                
                 df_estacoes_rep_temporal = pd.concat([df_estacoes_rep_temporal, pd.DataFrame([prcnt_estacao])], ignore_index=True)
 
-df_estacoes_rep_temporal.to_csv(os.getcwd()+'/data/MQAr_averages/REP_TEMPORAL.csv', index=False)
+                df_estacoes_rep_temporal.to_csv(os.getcwd()+'/data/MQAr_averages/REP_TEMPORAL.csv', index=False)

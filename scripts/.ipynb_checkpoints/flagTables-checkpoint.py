@@ -76,6 +76,9 @@ columns_names = {
     'BASE_DADOS':   'Base de dados',
     'MODELO':       'Modelo',
     'Nao declarado': 'Não declarado',
+    'Nao declarado': 'Não declarado',
+    'Nao declarada': 'Não declarado',
+    'Não declarada': 'Não declarado',
     'Coleta 2025': 'Consulta 2025',
     'Consulta 2024': 'Consulta 2025',
     'Coleta interna ': 'Coleta interna',
@@ -389,19 +392,19 @@ def table01():
     aqmData = aqmData.sort_values('ORDEM').drop(columns='ORDEM').reset_index(drop=True)
 
     aqmDisplay = aqmData[['FLAG','UF', 'Realiza monitoramento?','FONTE','REGIAO']]
-    aqmDisplay = aqmDisplay.rename(columns={"FLAG": "", "UF": "UF",'Realiza monitoramento?':'Realiza monitoramento?',"FONTE": "Fonte","REGIAO": "Região"})
+    aqmDisplay = aqmDisplay.rename(columns={"FLAG": "", "UF": "UF",'Realiza monitoramento?':'UF possui algum tipo de monitoramento?',"FONTE": "Fonte","REGIAO": "Região"})
     
     rows = []
     
 
     for group, data in aqmDisplay.groupby('Região', sort=False):
-        rows.append({'': '', 'UF': group, 'Realiza monitoramento?': '', 'Fonte': '','Região': ''})  
+        rows.append({'': '', 'UF': group, 'UF possui algum tipo de monitoramento?': '', 'Fonte': '','Região': ''})  
         rows.extend(data.to_dict('records'))
         # Add separator row: None or '' to create empty row
-        rows.append({'': '', 'UF': '', 'Realiza monitoramento?': '', 'Fonte': '','Região': ''})  
+        rows.append({'': '', 'UF': '', 'UF possui algum tipo de monitoramento?': '', 'Fonte': '','Região': ''})  
     
     # Add a blank row at the beginning
-    blank_row = {'': '', 'UF': '', 'Realiza monitoramento?': '', 'Fonte': '','Região': ''}
+    blank_row = {'': '', 'UF': '', 'UF possui algum tipo de monitoramento?': '', 'Fonte': '','Região': ''}
     rows.insert(0, blank_row)
         
     df_with_separators = pd.DataFrame(rows)
@@ -509,6 +512,131 @@ def table05():
 
     return display(HTML(styled.to_html(index=False, border=0,escape=False)))
 
+def table05MMA():
+
+    # Caminho para a pasta de dados
+    rootPath = os.path.dirname(os.getcwd())
+    
+    # Lendo o csv
+    aqmData = pd.read_csv(rootPath+'/data/Monitoramento_QAr_BR.csv')
+
+    # Remove espaços do ID
+    aqmData['ID_OEMA'] = aqmData['ID_OEMA'].astype(str).str.replace(' ', '')
+    
+    # ===============================
+    # 1) CONVERTE ANOS_MONITORADOS
+    # ===============================
+    def parse_anos(x):
+        try:
+            return [int(z) for z in str(x)
+                    .replace('[','')
+                    .replace(']','')
+                    .replace("'",'')
+                    .split(',')
+                    if z.strip().isdigit()]
+        except:
+            return []
+
+    aqmData['ANOS_MONITORADOS'] = aqmData['ANOS_MONITORADOS'].apply(parse_anos)
+
+    # ===============================
+    # 2) FILTRA APENAS ESTAÇÕES QUE MONITORARAM EM 2024
+    # ===============================
+    aqmData = aqmData[aqmData['ANOS_MONITORADOS'].apply(lambda lst: 2024 in lst)]
+
+    # ===============================
+    # 3) PADRONIZAÇÃO DAS CATEGORIAS
+    # ===============================
+    if 'CATEGORIA' not in aqmData.columns:
+        aqmData['CATEGORIA'] = 'Não declarado'
+
+    aqmData['CATEGORIA'] = aqmData['CATEGORIA'].fillna('Não declarado')
+
+    correction_map = {
+        'Referencia': 'Referência',
+        'Referência': 'Referência',
+        'Indicativa': 'Indicativa',
+        'Nao declarado': 'Não declarado',
+        'Nao declarada': 'Não declarado',
+        'Não declarada': 'Não declarado',
+        'Não declarado': 'Não declarado'
+    }
+
+    aqmData['CATEGORIA'] = (
+        aqmData['CATEGORIA']
+        .astype(str)
+        .str.strip()
+        .str.capitalize()
+        .replace(correction_map)
+    )
+    
+    # ===============================
+    # 4) REMOVE DUPLICIDADES
+    # ===============================
+    aqmData = aqmData.drop_duplicates(subset=['ID_OEMA'])
+
+    # ===============================
+    # 5) AGRUPAMENTO POR UF × CATEGORIA
+    # ===============================
+    aqmData = aqmData.groupby('UF')['CATEGORIA'].value_counts().unstack(fill_value=0)
+
+    # Brasil
+    aqmData.loc['BR'] = aqmData.sum()
+    
+    # ===============================
+    # 6) ORDENA POR REGIÕES + BANDEIRAS
+    # ===============================
+    df_index, uf_to_region, uf_order = tableReorder(regioes)
+
+    # Garante que todos os estados apareçam na tabela
+    aqmData = df_index.merge(aqmData, left_on='UF', right_on='UF', how='left')
+    
+    aqmData['REGIAO'] = aqmData['UF'].map(uf_to_region)
+    aqmData['ORDEM'] = aqmData['UF'].map(uf_order)
+
+    aqmData['FLAG'] = aqmData['UF'].apply(
+        lambda uf: f'<img src="../_static/bandeiras/{uf}.png" width="30">'
+    )
+
+    aqmData = aqmData.sort_values('ORDEM').drop(columns='ORDEM').reset_index(drop=True)
+
+    # ===============================
+    # 7) FORMATAÇÃO FINAL
+    # ===============================
+    aqmDisplay = aqmData[['FLAG','UF','Indicativa','Referência','Não declarado','REGIAO']]
+    aqmDisplay = columns_renamer(aqmDisplay)
+
+    aqmDisplay = aqmDisplay.fillna(0)
+    aqmDisplay['Indicativa'] = aqmDisplay['Indicativa'].astype(int)
+    aqmDisplay['Referência'] = aqmDisplay['Referência'].astype(int)
+    aqmDisplay['Não declarado'] = aqmDisplay['Não declarado'].astype(int)
+
+    rows = []
+
+    for group, data in aqmDisplay.groupby('Região', sort=False):
+        rows.append({'': '', 'UF': group, 'Indicativa': '', 'Referência': '','Não declarado':'','Região':''})  
+        rows.extend(data.to_dict('records'))
+        rows.append({'': '', 'UF': '','Indicativa': '', 'Referência':'','Não declarado':'', 'Região':''})  
+    
+    rows.insert(0, {'': '', 'UF': '', 'Indicativa': '', 'Referência':'','Não declarado':'', 'Região':''})
+  
+    df_with_separators = pd.DataFrame(rows)
+    df_with_separators = df_with_separators.drop(columns=['Região'])
+    df_with_separators = df_with_separators.replace(0, '-')
+    
+    styled = (
+        df_with_separators
+        .style
+        .apply(style_all_white, axis=1)
+        .hide(axis="index")
+        .set_table_styles([
+            {'selector': 'th', 'props': [('text-align', 'center')]},
+            {'selector': 'td > img', 'props': [('max-width', 'unset')]}
+        ])
+    )
+
+    return display(HTML(styled.to_html(index=False, border=0, escape=False)))
+
 
 def table06():
 
@@ -586,6 +714,366 @@ def table06():
     )
 
     return display(HTML(styled.to_html(index=False, border=0,escape=False)))
+
+def table06MMA():
+    # 1. PREPARAÇÃO DOS DADOS
+    rootPath = os.path.dirname(os.getcwd())
+    aqmData = pd.read_csv(rootPath+'/data/Monitoramento_QAr_BR.csv')
+    aqmData['ID_OEMA'] = aqmData['ID_OEMA'].str.replace(' ', '')
+    
+    aqmData = aqmData.drop_duplicates(subset=['ID_OEMA'])
+    
+    # --- AJUSTE DA COLUNA CATEGORIA ---
+    # Verifica se a coluna existe, senão cria
+    col_target = 'CATEGORIA'
+    if col_target not in aqmData.columns:
+        aqmData[col_target] = 'Não declarado'
+        
+    # Preenche nulos
+    aqmData[col_target] = aqmData[col_target].fillna('Não declarado')
+    aqmData['STATUS'] = aqmData['STATUS'].fillna('Não declarado')
+
+    # --- LIMPEZA E PADRONIZAÇÃO DOS NOMES ---
+    # Garante que 'indicativa' vire 'Indicativa' e resolve falta de acentos
+    aqmData[col_target] = aqmData[col_target].astype(str).str.strip().str.capitalize()
+    
+    # Dicionário para corrigir grafias comuns (ex: sem acento)
+    correction_map = {
+        'Referencia': 'Referência',
+        'Referência': 'Referência',
+        'Indicativa': 'Indicativa',
+        'Nao declarado': 'Não declarado',
+        'Não declarado': 'Não declarado'
+        # Se houver outros nomes na coluna Categoria, adicione aqui ou eles cairão em colunas extras ou serão ignorados pelo reindex abaixo
+    }
+    aqmData[col_target] = aqmData[col_target].replace(correction_map)
+    
+    # Limpeza do Status também
+    aqmData['STATUS'] = aqmData['STATUS'].astype(str).str.strip().str.capitalize()
+
+    # 2. PIVOTAGEM (Usando CATEGORIA agora)
+    # Index: UF, Colunas: (Categoria, Status)
+    pivot = aqmData.groupby(['UF', col_target, 'STATUS'])['ID_OEMA'].count().unstack([col_target, 'STATUS'], fill_value=0)
+
+    # 3. DEFINIÇÃO DA ESTRUTURA FIXA
+    # Definimos exatamente quais colunas queremos exibir
+    super_cols = ['Indicativa', 'Referência', 'Não declarado']
+    sub_cols = ['Ativa', 'Inativa', 'Não declarado']
+    
+    # Produto cartesiano (Gabarito de todas as colunas possíveis)
+    target_combinations = [(sup, sub) for sup in super_cols for sub in sub_cols]
+
+    # Reindexa para garantir que a tabela tenha exatamente essas colunas na ordem certa
+    # (Se a coluna Categoria tiver valores diferentes desses, eles serão descartados aqui. 
+    #  Se tiver faltando, serão preenchidos com 0)
+    pivot = pivot.reindex(columns=pd.MultiIndex.from_tuples(target_combinations), fill_value=0)
+    
+    # Calcula linha BR (Soma)
+    pivot.loc['BR'] = pivot.sum()
+
+    # 4. CONSTRUÇÃO MANUAL DAS LINHAS
+    df_index, uf_to_region, uf_order = tableReorder(regioes)
+    
+    flat_columns = ['FLAG', 'UF', 'REGIAO'] + [f'col_{i}' for i in range(len(target_combinations))]
+
+    def get_flag(uf):
+        return f'<img src= "../_static/bandeiras/{uf}.png" width="30">'
+
+    df_index['REGIAO'] = df_index['UF'].map(uf_to_region)
+    df_index['ORDEM'] = df_index['UF'].map(uf_order)
+    df_index = df_index.sort_values('ORDEM')
+
+    rows = []
+    
+    for region_name, region_data in df_index.groupby('REGIAO', sort=False):
+        # --- Cabeçalho da Região ---
+        header_row = {col: '' for col in flat_columns}
+        header_row['UF'] = f"<b>{region_name}</b>" 
+        rows.append(header_row)
+
+        # --- Linhas dos Estados ---
+        for uf in region_data['UF']:
+            row_data = {
+                'FLAG': get_flag(uf),
+                'UF': uf,
+                'REGIAO': region_name
+            }
+            
+            if uf in pivot.index:
+                vals = pivot.loc[uf].values
+            else:
+                vals = [0] * len(target_combinations)
+            
+            for i, val in enumerate(vals):
+                row_data[f'col_{i}'] = str(int(val)) if val > 0 else '-'
+            
+            rows.append(row_data)
+
+        # --- Separador ---
+        rows.append({col: '' for col in flat_columns})
+
+    rows.insert(0, {col: '' for col in flat_columns})
+
+    # 5. CRIAÇÃO DO DATAFRAME FINAL
+    df_final = pd.DataFrame(rows, columns=flat_columns)
+    df_final = df_final.drop(columns=['REGIAO'])
+
+    # Define o Cabeçalho Duplo (MultiIndex)
+    header_tuples = [('', ''), ('', 'UF')] 
+    for sup, sub in target_combinations:
+        header_tuples.append((sup, sub))
+
+    df_final.columns = pd.MultiIndex.from_tuples(header_tuples)
+
+    # 6. ESTILIZAÇÃO (Função customizada corrigida)
+    def custom_styler(row):
+        uf_val = row[('', 'UF')]
+        flag_val = row[('', '')] 
+
+        base_style = 'background-color: white; color: black; font-size: 11px;'
+        center = 'text-align: center;'
+        left = 'text-align: left;'
+        
+        styles = []
+        
+        # Identifica se é linha de Região (Tem texto na UF mas não tem Bandeira)
+        if uf_val != '' and flag_val == '':
+            for col_tuple in row.index:
+                if col_tuple == ('', 'UF'):
+                    # Alinha o nome da região à esquerda e em negrito
+                    styles.append(base_style + left + 'font-weight: bold; font-size: 12px;')
+                else:
+                    styles.append(base_style)
+            return styles
+        
+        return [base_style + center] * len(row)
+
+    styled = (
+        df_final.style
+        .apply(custom_styler, axis=1)
+        .hide(axis="index")
+        .set_table_styles([
+            {'selector': 'th', 'props': [
+                ('text-align', 'center'), 
+                ('vertical-align', 'middle'),
+                ('font-size', '8pt'), # Fonte do cabeçalho levemente menor
+                ('background-color', 'white'),
+                ('color', 'black')
+            ]},
+            {'selector': 'td > img', 'props': [('max-width', 'unset')]},
+            {'selector': 'th[colspan]', 'props': [
+                ('border-bottom', '1px solid #ccc'),
+                ('font-weight', 'bold'),
+                ('text-transform', 'uppercase')
+            ]} 
+        ])
+    )
+
+    return display(HTML(styled.to_html(index=False, border=0, escape=False)))
+
+def table06MMA2():
+    # ===========================================
+    # 1. LEITURA E PREPARAÇÃO DOS DADOS
+    # ===========================================
+    rootPath = os.path.dirname(os.getcwd())
+    aqmData = pd.read_csv(rootPath+'/data/Monitoramento_QAr_BR.csv')
+    
+    # Remove espaços em IDs
+    aqmData['ID_OEMA'] = aqmData['ID_OEMA'].astype(str).str.replace(' ', '')
+
+    # -------------------------------------------
+    # GARANTE QUE A COLUNA CATEGORIA EXISTE
+    # -------------------------------------------
+    col_target = 'CATEGORIA'
+    if col_target not in aqmData.columns:
+        aqmData[col_target] = 'Não declarado'
+
+    # Converte ANOS_MONITORADOS para lista de inteiros
+    def parse_anos(x):
+        try:
+            parts = [int(z) for z in str(x)
+                     .replace('[', '')
+                     .replace(']', '')
+                     .replace("'", '')
+                     .split(',')
+                     if z.strip().isdigit()]
+            return parts
+        except:
+            return []
+    
+    aqmData['ANOS_MONITORADOS'] = aqmData['ANOS_MONITORADOS'].apply(parse_anos)
+
+    # -------------------------------------------
+    # FILTRA APENAS ESTAÇÕES QUE MONITORARAM EM 2024
+    # (para coincidir com o gráfico)
+    # -------------------------------------------
+    aqmData = aqmData[aqmData['ANOS_MONITORADOS'].apply(lambda lst: 2024 in lst)]
+
+    # Se a estação aparecer repetida no CSV, mantém só uma
+    aqmData = aqmData.drop_duplicates(subset=['ID_OEMA'])
+
+    # ===========================================
+    # 2. PADRONIZAÇÃO DAS VARIÁVEIS
+    # ===========================================
+    # Preenche NAs
+    aqmData[col_target] = aqmData[col_target].fillna('Não declarado')
+    aqmData['STATUS'] = aqmData['STATUS'].fillna('Não declarado')
+
+    # Padroniza CATEGORIA
+    correction_map = {
+        'Referencia': 'Referência',
+        'Referência': 'Referência',
+        'Indicativa': 'Indicativa',
+        'Nao declarado': 'Não declarado',
+        'Nao declarada': 'Não declarado',
+        'Não declarada': 'Não declarado',
+        'Não declarado': 'Não declarado'
+    }
+
+    aqmData[col_target] = (
+        aqmData[col_target]
+        .astype(str)
+        .str.strip()
+        .str.capitalize()
+        .replace(correction_map)
+    )
+
+    # Padroniza STATUS
+    aqmData['STATUS'] = (
+        aqmData['STATUS']
+        .astype(str)
+        .str.strip()
+        .str.capitalize()
+    )
+
+    # ===========================================
+    # 3. PIVOT (UF × CATEGORIA × STATUS)
+    # ===========================================
+    pivot = (
+        aqmData
+        .groupby(['UF', col_target, 'STATUS'])['ID_OEMA']
+        .count()
+        .unstack([col_target, 'STATUS'], fill_value=0)
+    )
+
+    # -------------------------------------------
+    # COLUNAS FIXAS (GABARITO)
+    # -------------------------------------------
+    super_cols = ['Indicativa', 'Referência', 'Não declarado']
+    sub_cols = ['Ativa', 'Inativa', 'Não declarado']
+    target_combinations = [(sup, sub) for sup in super_cols for sub in sub_cols]
+
+    pivot = pivot.reindex(columns=pd.MultiIndex.from_tuples(target_combinations), fill_value=0)
+
+    # ===========================================
+    # 4. LINHA BR (total Brasil)
+    # ===========================================
+    pivot.loc['BR'] = pivot.sum()
+
+    # ===========================================
+    # 5. MONTAGEM DO DATAFRAME FINAL COM BANDEIRAS
+    # ===========================================
+    df_index, uf_to_region, uf_order = tableReorder(regioes)
+
+    flat_columns = ['FLAG', 'UF', 'REGIAO'] + [f'col_{i}' for i in range(len(target_combinations))]
+
+    def get_flag(uf):
+        return f'<img src="../_static/bandeiras/{uf}.png" width="30">'
+
+    df_index['REGIAO'] = df_index['UF'].map(uf_to_region)
+    df_index['ORDEM'] = df_index['UF'].map(uf_order)
+    df_index = df_index.sort_values('ORDEM')
+
+    rows = []
+
+    # Inserimos um separador no topo
+    rows.append({col: '' for col in flat_columns})
+
+    # -------------------------------------------
+    # Adiciona UF por Região
+    # -------------------------------------------
+    for region_name, region_data in df_index.groupby('REGIAO', sort=False):
+
+        # Cabeçalho de região
+        header_row = {col: '' for col in flat_columns}
+        header_row['UF'] = f"<b>{region_name}</b>"
+        rows.append(header_row)
+
+        # Linhas dos estados
+        for uf in region_data['UF']:
+            row = {
+                'FLAG': get_flag(uf),
+                'UF': uf,
+                'REGIAO': region_name
+            }
+
+            if uf in pivot.index:
+                vals = pivot.loc[uf].values
+            else:
+                vals = [0] * len(target_combinations)
+
+            for i, val in enumerate(vals):
+                row[f'col_{i}'] = str(int(val)) if val > 0 else '-'
+
+            rows.append(row)
+
+        # Separador entre regiões
+        rows.append({col: '' for col in flat_columns})
+
+    # ===========================================
+    # 6. MONTAGEM FINAL DO DATAFRAME
+    # ===========================================
+    df_final = pd.DataFrame(rows, columns=flat_columns)
+    df_final = df_final.drop(columns=['REGIAO'])
+
+    header_tuples = [('', ''), ('', 'UF')] + list(target_combinations)
+    df_final.columns = pd.MultiIndex.from_tuples(header_tuples)
+
+    # ===========================================
+    # 7. ESTILIZAÇÃO
+    # ===========================================
+    def custom_styler(row):
+        uf_val = row[('', 'UF')]
+        flag_val = row[('', '')]
+
+        base = 'background-color: white; color: black; font-size: 11px;'
+        center = 'text-align: center;'
+        left = 'text-align: left;'
+
+        styles = []
+
+        if uf_val != '' and flag_val == '':
+            # Linha de Região
+            for col in row.index:
+                if col == ('', 'UF'):
+                    styles.append(base + left + 'font-weight: bold; font-size: 12px;')
+                else:
+                    styles.append(base)
+            return styles
+
+        return [base + center] * len(row)
+
+    styled = (
+        df_final.style
+        .apply(custom_styler, axis=1)
+        .hide(axis="index")
+        .set_table_styles([
+            {'selector': 'th', 'props': [
+                ('text-align', 'center'),
+                ('vertical-align', 'middle'),
+                ('font-size', '8pt'),
+                ('background-color', 'white'),
+                ('color', 'black')
+            ]},
+            {'selector': 'td > img', 'props': [('max-width', 'unset')]},
+            {'selector': 'th[colspan]', 'props': [
+                ('border-bottom', '1px solid #ccc'),
+                ('font-weight', 'bold')
+            ]}
+        ])
+    )
+
+    return display(HTML(styled.to_html(index=False, border=0, escape=False)))
 
 
 def table07():
@@ -681,6 +1169,107 @@ def table07():
     return display(HTML(styled.to_html(index=False, border=0,escape=False)))
 
 
+def table07MMA():
+    # Caminho para a pasta de dados
+    rootPath = os.path.dirname(os.getcwd())
+    
+    # Lendo o csv
+    aqmData = pd.read_csv(rootPath+'/data/Monitoramento_QAr_BR.csv')
+
+    # --- NOVA LÓGICA DE FILTRO ---
+    # Garante que não haja espaços em branco extras e filtra apenas 'Ativa'
+    # Se os dados estiverem sujos (ex: 'ativa', 'ATIVA'), adicione .str.capitalize() antes da comparação
+    if 'STATUS' in aqmData.columns:
+        aqmData = aqmData[aqmData['STATUS'].str.strip() == 'Ativa']
+    # -----------------------------
+
+    aqmData['ID_OEMA'] = aqmData['ID_OEMA'].str.replace(' ', '') 
+    
+    # Selecionando apenas Estado e Fonte e removendo redundâncias
+    aqmData['POLUENTE'] = aqmData['POLUENTE'].str.upper() 
+    
+    # O filtro de STATUS deve ter ocorrido antes desta linha:
+    aqmData = aqmData.groupby('UF')['POLUENTE'].value_counts().unstack(fill_value=0)
+    
+    numeric_cols = aqmData.select_dtypes(include=['number']).columns
+    aqmData[numeric_cols] = aqmData[numeric_cols].astype('Int64')
+    aqmData.loc['BR']= aqmData.sum()
+
+    # Ordenando por região
+    # Create two mappings:
+    # Region name per UF
+    # Certifique-se que 'regioes' e 'tableReorder' estão definidos no escopo global ou importados
+    uf_to_region = {uf: Regiao for Regiao, ufs in regioes.items() for uf in ufs}
+    
+    df_index, uf_to_region, uf_order = tableReorder(regioes)
+
+    # Atualizando o df com todos os estados
+    aqmData = df_index.merge(aqmData, left_on='UF', right_on='UF', how='left')
+    
+    # Add columns to the DataFrame
+    aqmData['REGIAO'] = aqmData['UF'].map(uf_to_region)
+    aqmData['ORDEM'] = aqmData['UF'].map(uf_order)
+
+    # Create a new column with HTML img tag
+    aqmData['FLAG'] = aqmData['UF'].apply(
+        lambda uf: f'<img src= "../_static/bandeiras/{uf}.png" width="20">'
+    ).astype(str)
+
+        
+    # Sort by region order and then by UF order
+    aqmData = aqmData.sort_values('ORDEM').drop(columns='ORDEM').reset_index(drop=True)
+    
+    aqmDisplay = aqmData.copy()
+    # Preenche com 0 porque estados sem estações ativas ficaram como NaN após o merge
+    aqmDisplay = aqmDisplay.fillna(0) 
+    aqmDisplay.rename(columns={'FLAG': ''}, inplace=True)
+
+    rows = []
+    for group, data in aqmDisplay.groupby('REGIAO', sort=False):
+        rows.append({'': '', 'UF': group})  
+        rows.extend(data.to_dict('records'))
+        # Add separator row: None or '' to create empty row
+        rows.append({'': '', 'UF': ''})  
+    
+    # Add a blank row at the beginning
+    blank_row = {'': '', 'UF': ''}
+    rows.insert(0, blank_row)
+        
+    df_with_separators = pd.DataFrame(rows)
+    df_with_separators = df_with_separators.drop(columns=['REGIAO'])
+    
+    df_with_separators[numeric_cols] = df_with_separators[numeric_cols].apply(pd.to_numeric, errors='coerce')
+    df_with_separators[numeric_cols] = df_with_separators[numeric_cols].fillna(999999).astype(int)
+    df_with_separators = df_with_separators.replace(999999, '')
+    df_with_separators = df_with_separators.replace(0, '-')
+    
+    # Funções auxiliares (assumindo que existem no seu código original)
+    df_with_separators = columns_renamer(df_with_separators)
+    df_with_separators = columns_renamer_csv(df_with_separators)
+    
+    # --- Correção antes de aplicar o estilo ---
+    df_with_separators = (
+        df_with_separators
+        .reset_index(drop=True)  # Garante índice único
+        .loc[:, ~df_with_separators.columns.duplicated()]  # Remove colunas duplicadas
+    )
+
+    styled = (
+        df_with_separators
+        .style
+        .apply(style_all_white, axis=1)
+        .hide(axis="index") 
+        .set_table_styles([
+        {'selector': 'th', 'props': [
+            ('text-align', 'center'),
+            ('font-size', '7pt') 
+        ]}, 
+            {'selector': 'td > img', 'props': [('max-width', 'unset')]}
+    ])
+    )
+
+    return display(HTML(styled.to_html(index=False, border=0, escape=False)))
+
 def tabela_iterativa(aqmData, searchPaneColumns):
     """
     Create an interactive HTML table for air quality monitoring data with search panes and export options.
@@ -722,11 +1311,32 @@ def tabela_iterativa(aqmData, searchPaneColumns):
     opt.maxBytes = 0
     # Configure global options
     opt.classes = "display compact stripe"
-    opt.columnDefs = [{"targets": "_all", "className": "dt-rigth"},   
-                      {"targets": [0,1],  # First column
-                       "width": "60px",  # or "10%" if you prefer relative size
-                       "className": "dt-right"  # optional: left-align
-                      },]  # Align text right
+    # Larguras automáticas conforme número de colunas
+    n_cols = aqmData.shape[1]
+    
+    if n_cols == 7:
+        opt.columnDefs = [
+            {"targets": "_all", "className": "dt-right"},
+            {"targets": [0], "width": "60px"},   # Bandeira ou ícone
+            {"targets": [1], "width": "60px"},   # UF
+            {"targets": [2], "width": "100px"},   # ID_OEMA
+            {"targets": [3], "width": "120px"},  # Poluente
+            {"targets": [4,5,6], "width": "80px"} # Categoria, Funcionamento
+        ]
+    
+    elif n_cols == 8:
+        opt.columnDefs = [
+            {"targets": "_all", "className": "dt-right"},
+            {"targets": [0], "width": "60px"},
+            {"targets": [1], "width": "60px"},
+            {"targets": [2], "width": "100px"},
+            {"targets": [3], "width": "120px"},
+            {"targets": [4, 5, 6, 7], "width": "80px"}  # Categoria, Funcionamento, Finalidade
+        ]
+    else:
+        # fallback genérico
+        opt.columnDefs = [{"targets": "_all", "className": "dt-right"}]
+
     opt.style = "font-size: 11px; white-space: normal;div.dt-buttons button {font-size: 10px !important; padding: 4px 6px;"  # Apply font size and enable wrapping
     opt.lengthMenu = [5, 10, 25]
 
